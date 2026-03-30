@@ -492,8 +492,6 @@ var _, v = e((() => {
 				title: "La mia Casa 3D",
 				height: 450,
 				wall_height: 2.4,
-				sun_entity: "",
-				weather_entity: "",
 				rooms: [{
 					id: "stanza_base",
 					name: "Stanza Base",
