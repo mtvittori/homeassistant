@@ -1534,16 +1534,20 @@ var _, v = e((() => {
 		{
 			name: "sun_entity",
 			label: "Entità Sole (giorno/notte)",
-			selector: { entity: { domain: ["sun"] } }
+			selector: { entity: { domain: "sun" } }
 		},
 		{
 			name: "weather_entity",
 			label: "Entità Meteo (atmosfera)",
-			selector: { entity: { domain: ["weather"] } }
+			selector: { entity: { domain: "weather" } }
 		}
 	], S = class extends HTMLElement {
 		setConfig(e) {
-			this._config = e, this._yamlEditor && (this._yamlEditor.defaultValue = e), this._haForm && (this._haForm.data = e), this._render();
+			this._config = {
+				sun_entity: void 0,
+				weather_entity: void 0,
+				...e
+			}, this._yamlEditor && (this._yamlEditor.defaultValue = this._config), this._haForm && (this._haForm.data = this._config), this._render();
 		}
 		set hass(e) {
 			this._hass = e, this._haForm && (this._haForm.hass = e), this._yamlEditor && (this._yamlEditor.hass = e);

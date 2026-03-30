@@ -10,15 +10,19 @@ export const _haEditorSchema = [
     label: "Altezza default dei Muri (m)",
     selector: { number: { min: 1, max: 4, step: 0.1, mode: "box" } },
   },
-  { name: "sun_entity", label: "Entità Sole (giorno/notte)", selector: { entity: { domain: ["sun"] } } },
-  { name: "weather_entity", label: "Entità Meteo (atmosfera)", selector: { entity: { domain: ["weather"] } } },
+  { name: "sun_entity", label: "Entità Sole (giorno/notte)", selector: { entity: { domain: "sun" } } },
+  { name: "weather_entity", label: "Entità Meteo (atmosfera)", selector: { entity: { domain: "weather" } } },
 ];
 
 export class FloorPlan3DCardEditor extends HTMLElement {
   setConfig(config) {
-    this._config = config;
-    if (this._yamlEditor) this._yamlEditor.defaultValue = config;
-    if (this._haForm) this._haForm.data = config;
+    this._config = {
+      sun_entity: undefined,
+      weather_entity: undefined,
+      ...config
+    };
+    if (this._yamlEditor) this._yamlEditor.defaultValue = this._config;
+    if (this._haForm) this._haForm.data = this._config;
     this._render();
   }
 
