@@ -1504,8 +1504,75 @@ var _, v = e((() => {
 			this._animId && cancelAnimationFrame(this._animId);
 		}
 	};
-})), x = /* @__PURE__ */ t((() => {
-	b(), customElements.define("floorplan-3d-card", y), window.customCards = window.customCards || [], window.customCards.push({
+})), x, S, C = e((() => {
+	x = [
+		{
+			name: "title",
+			label: "Titolo Scheda",
+			selector: { text: {} }
+		},
+		{
+			name: "height",
+			label: "Altezza Card (px)",
+			selector: { number: {
+				min: 200,
+				max: 1e3,
+				step: 10
+			} }
+		},
+		{
+			name: "wall_height",
+			label: "Altezza default dei Muri (m)",
+			selector: { number: {
+				min: 1,
+				max: 4,
+				step: .1
+			} }
+		},
+		{
+			name: "sun_entity",
+			label: "Entità Sole (giorno/notte)",
+			selector: { entity: { domain: "sun" } }
+		},
+		{
+			name: "weather_entity",
+			label: "Entità Meteo (atmosfera)",
+			selector: { entity: { domain: "weather" } }
+		}
+	], S = class extends HTMLElement {
+		setConfig(e) {
+			this._config = e, this._yamlEditor && (this._yamlEditor.defaultValue = e), this._haForm && (this._haForm.data = e), this._render();
+		}
+		set hass(e) {
+			this._hass = e, this._haForm && (this._haForm.hass = e), this._yamlEditor && (this._yamlEditor.hass = e);
+		}
+		connectedCallback() {
+			this.shadowRoot || (this.attachShadow({ mode: "open" }), this._render());
+		}
+		_render() {
+			!this.shadowRoot || !this._config || (this._initialized ? (this._haForm && this._haForm.data !== this._config && (this._haForm.data = this._config), this._yamlEditor && this._yamlEditor.defaultValue !== this._config && (this._yamlEditor.defaultValue = this._config)) : (this._initialized = !0, this.shadowRoot.innerHTML = "\n        <style>\n          .form-container { margin-bottom: 24px; display: block; }\n          .alert { background: rgba(255,152,0,0.1); border-left: 4px solid #ff9800; padding: 12px; margin-bottom: 24px; font-size: 14px; color: var(--primary-text-color); }\n          .yaml-container { display: block; }\n          .yaml-container p { margin-bottom: 8px; font-weight: bold; color: var(--primary-text-color); }\n        </style>\n        <div class=\"alert\">\n          <strong>✨ Suggerimento per l'editor 3D:</strong> Chiudi questa finestra cliccando su \"Salva\" nell'interfaccia Lovelace, poi usa il pulsante <strong>\"✏️ Edit\"</strong> che vedi sopra al rettangolo 3D della plancia! Modificando spostamenti, luci e colori da lì, il file YAML della plancia si aggiornerà in automatico.\n        </div>\n        <div class=\"form-container\">\n          <ha-form></ha-form>\n        </div>\n        <div class=\"yaml-container\">\n          <p>Configurazione YAML (generata automaticamente dall'editor 3D interno):</p>\n          <ha-yaml-editor></ha-yaml-editor>\n        </div>\n      ", this._haForm = this.shadowRoot.querySelector("ha-form"), this._haForm.hass = this._hass, this._haForm.data = this._config, this._haForm.schema = x, this._haForm.computeLabel = (e) => e.label || e.name, this._haForm.addEventListener("value-changed", (e) => this._formChanged(e)), this._yamlEditor = this.shadowRoot.querySelector("ha-yaml-editor"), this._yamlEditor.hass = this._hass, this._yamlEditor.defaultValue = this._config, this._yamlEditor.addEventListener("value-changed", (e) => this._yamlChanged(e))));
+		}
+		_formChanged(e) {
+			if (e.stopPropagation(), !this._config) return;
+			let t = {
+				...this._config,
+				...e.detail.value
+			};
+			this._dispatchConfig(t);
+		}
+		_yamlChanged(e) {
+			e.stopPropagation(), !(!this._config || !e.detail.isValid) && this._dispatchConfig(e.detail.value);
+		}
+		_dispatchConfig(e) {
+			this._config = e, this.dispatchEvent(new CustomEvent("config-changed", {
+				detail: { config: e },
+				bubbles: !0,
+				composed: !0
+			}));
+		}
+	};
+})), w = /* @__PURE__ */ t((() => {
+	b(), C(), customElements.define("floorplan-3d-card", y), customElements.define("floorplan-3d-card-editor", S), window.customCards = window.customCards || [], window.customCards.push({
 		type: "floorplan-3d-card",
 		name: "3D Floor Plan",
 		preview: !0,
@@ -1513,4 +1580,4 @@ var _, v = e((() => {
 	});
 }));
 //#endregion
-export default x();
+export default w();
