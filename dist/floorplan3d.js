@@ -1574,7 +1574,7 @@ var _, v = e((() => {
 		}
 	};
 })), w = /* @__PURE__ */ t((() => {
-	b(), C(), customElements.define("floorplan-3d-card", y), customElements.define("floorplan-3d-card-editor", S), window.customCards = window.customCards || [], window.customCards.push({
+	b(), C(), customElements.get("floorplan-3d-card") || customElements.define("floorplan-3d-card", y), customElements.get("floorplan-3d-card-editor") || customElements.define("floorplan-3d-card-editor", S), window.customCards = window.customCards || [], window.customCards.push({
 		type: "floorplan-3d-card",
 		name: "3D Floor Plan",
 		preview: !0,
