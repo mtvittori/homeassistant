@@ -492,6 +492,8 @@ var _, v = e((() => {
 				title: "La mia Casa 3D",
 				height: 450,
 				wall_height: 2.4,
+				sun_entity: "",
+				weather_entity: "",
 				rooms: [{
 					id: "stanza_base",
 					name: "Stanza Base",
@@ -1517,7 +1519,8 @@ var _, v = e((() => {
 			selector: { number: {
 				min: 200,
 				max: 1e3,
-				step: 10
+				step: 10,
+				mode: "box"
 			} }
 		},
 		{
@@ -1526,18 +1529,19 @@ var _, v = e((() => {
 			selector: { number: {
 				min: 1,
 				max: 4,
-				step: .1
+				step: .1,
+				mode: "box"
 			} }
 		},
 		{
 			name: "sun_entity",
 			label: "Entità Sole (giorno/notte)",
-			selector: { entity: { domain: "sun" } }
+			selector: { entity: { domain: ["sun"] } }
 		},
 		{
 			name: "weather_entity",
 			label: "Entità Meteo (atmosfera)",
-			selector: { entity: { domain: "weather" } }
+			selector: { entity: { domain: ["weather"] } }
 		}
 	], S = class extends HTMLElement {
 		setConfig(e) {

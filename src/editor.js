@@ -3,15 +3,15 @@ export const _haEditorSchema = [
   {
     name: "height",
     label: "Altezza Card (px)",
-    selector: { number: { min: 200, max: 1000, step: 10 } },
+    selector: { number: { min: 200, max: 1000, step: 10, mode: "box" } },
   },
   {
     name: "wall_height",
     label: "Altezza default dei Muri (m)",
-    selector: { number: { min: 1, max: 4, step: 0.1 } },
+    selector: { number: { min: 1, max: 4, step: 0.1, mode: "box" } },
   },
-  { name: "sun_entity", label: "Entità Sole (giorno/notte)", selector: { entity: { domain: "sun" } } },
-  { name: "weather_entity", label: "Entità Meteo (atmosfera)", selector: { entity: { domain: "weather" } } },
+  { name: "sun_entity", label: "Entità Sole (giorno/notte)", selector: { entity: { domain: ["sun"] } } },
+  { name: "weather_entity", label: "Entità Meteo (atmosfera)", selector: { entity: { domain: ["weather"] } } },
 ];
 
 export class FloorPlan3DCardEditor extends HTMLElement {
