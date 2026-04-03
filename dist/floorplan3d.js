@@ -1369,8 +1369,8 @@ var _, v = e((() => {
 		}
 		_onHassUpdate(e) {
 			if (!this._hass || !e) return;
-			let t = this._config?.sun_entity || "sun.sun", n = this._config?.weather_entity, r = this._hass.states?.[t]?.state !== e.states?.[t]?.state || this._hass.states?.[t]?.attributes?.elevation !== e.states?.[t]?.attributes?.elevation, i = n && this._hass.states?.[n]?.state !== e.states?.[n]?.state;
-			(r || i) && this._updateAtmosphere();
+			let t = this._config?.sun_entity || "sun.sun", n = this._config?.weather_entity, r = this._hass.states?.[t]?.state !== e.states?.[t]?.state || this._hass.states?.[t]?.attributes?.elevation !== e.states?.[t]?.attributes?.elevation, i = n && (this._hass.states?.[n]?.state !== e.states?.[n]?.state || this._hass.states?.[n]?.attributes?.temperature !== e.states?.[n]?.attributes?.temperature);
+			(r || i) && this._updateAtmosphere(), i && this._updateStats();
 			let a = /* @__PURE__ */ new Set(), o = !1;
 			for (let t in this._entityRoomMap) {
 				let n = this._hass.states?.[t], r = e.states?.[t];
@@ -1406,12 +1406,40 @@ var _, v = e((() => {
 		_updateAllVisuals() {
 			this._rooms.forEach((e) => this._updateRoomVisual(e.id));
 		}
+		_weatherLabel(e) {
+			return {
+				sunny: "☀️ Soleggiato",
+				"clear-night": "🌙 Sereno",
+				partlycloudy: "⛅ Parz. nuvoloso",
+				cloudy: "☁️ Nuvoloso",
+				fog: "🌫️ Nebbia",
+				rainy: "🌧️ Pioggia",
+				pouring: "🌧️ Acquazzone",
+				lightning: "⛈️ Temporale",
+				"lightning-rainy": "⛈️ Temporale",
+				snowy: "❄️ Neve",
+				"snowy-rainy": "🌨️ Nevischio",
+				hail: "🌨️ Grandine",
+				windy: "💨 Vento",
+				"windy-variant": "💨 Vento",
+				exceptional: "⚠️ Condizioni eccezionali"
+			}[e] || e;
+		}
 		_updateStats() {
 			let e = this.shadowRoot.getElementById("stats");
-			!e || !this._hass || (e.innerHTML = this._statSensors.map((e) => {
+			if (!e || !this._hass) return;
+			let t = "", n = this._config?.weather_entity;
+			if (n) {
+				let e = this._hass.states?.[n];
+				if (e && e.state !== "unavailable") {
+					let n = e.attributes?.temperature, r = e.attributes?.temperature_unit ?? "°C", i = this._weatherLabel(e.state), a = n == null ? "" : ` <strong>${Math.round(n)}${r}</strong>`;
+					t += `<div class="pill">${i}${a}</div>`;
+				}
+			}
+			t += this._statSensors.map((e) => {
 				let t = this._sv(e.entity), n = e.unit ?? this._hass?.states?.[e.entity]?.attributes?.unit_of_measurement ?? "";
 				return t === "unavailable" ? "" : `<div class="pill">${e.label} <strong>${t}${n}</strong></div>`;
-			}).join(""));
+			}).join(""), e.innerHTML = t;
 		}
 		_openPanel(e) {
 			let t = this._rooms.find((t) => t.id === e);

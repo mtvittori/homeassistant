@@ -1621,9 +1621,15 @@ export class FloorPlan3DCard extends HTMLElement {
     const wEnt = this._config?.weather_entity;
     const sunChanged = this._hass.states?.[sEnt]?.state !== prev.states?.[sEnt]?.state ||
       this._hass.states?.[sEnt]?.attributes?.elevation !== prev.states?.[sEnt]?.attributes?.elevation;
-    const weatherChanged = wEnt && this._hass.states?.[wEnt]?.state !== prev.states?.[wEnt]?.state;
+    const weatherChanged = wEnt && (
+      this._hass.states?.[wEnt]?.state !== prev.states?.[wEnt]?.state ||
+      this._hass.states?.[wEnt]?.attributes?.temperature !== prev.states?.[wEnt]?.attributes?.temperature
+    );
     if (sunChanged || weatherChanged) {
       this._updateAtmosphere();
+    }
+    if (weatherChanged) {
+      this._updateStats();
     }
 
     const changed = new Set();
@@ -1744,10 +1750,35 @@ export class FloorPlan3DCard extends HTMLElement {
   _updateAllVisuals() {
     this._rooms.forEach((r) => this._updateRoomVisual(r.id));
   }
+  _weatherLabel(state) {
+    const map = {
+      "sunny": "☀️ Soleggiato", "clear-night": "🌙 Sereno",
+      "partlycloudy": "⛅ Parz. nuvoloso", "cloudy": "☁️ Nuvoloso",
+      "fog": "🌫️ Nebbia", "rainy": "🌧️ Pioggia", "pouring": "🌧️ Acquazzone",
+      "lightning": "⛈️ Temporale", "lightning-rainy": "⛈️ Temporale",
+      "snowy": "❄️ Neve", "snowy-rainy": "🌨️ Nevischio",
+      "hail": "🌨️ Grandine", "windy": "💨 Vento", "windy-variant": "💨 Vento",
+      "exceptional": "⚠️ Condizioni eccezionali",
+    };
+    return map[state] || state;
+  }
+
   _updateStats() {
     const el = this.shadowRoot.getElementById("stats");
     if (!el || !this._hass) return;
-    el.innerHTML = this._statSensors
+    let pills = "";
+    const wEnt = this._config?.weather_entity;
+    if (wEnt) {
+      const ws = this._hass.states?.[wEnt];
+      if (ws && ws.state !== "unavailable") {
+        const temp = ws.attributes?.temperature;
+        const unit = ws.attributes?.temperature_unit ?? "°C";
+        const label = this._weatherLabel(ws.state);
+        const tempStr = temp != null ? ` <strong>${Math.round(temp)}${unit}</strong>` : "";
+        pills += `<div class="pill">${label}${tempStr}</div>`;
+      }
+    }
+    pills += this._statSensors
       .map((s) => {
         const v = this._sv(s.entity);
         const unit = s.unit ?? this._hass?.states?.[s.entity]?.attributes?.unit_of_measurement ?? "";
@@ -1756,6 +1787,7 @@ export class FloorPlan3DCard extends HTMLElement {
           : "";
       })
       .join("");
+    el.innerHTML = pills;
   }
 
   _openPanel(rid) {
