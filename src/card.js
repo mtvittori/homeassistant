@@ -240,6 +240,8 @@ export class FloorPlan3DCard extends HTMLElement {
     this._updateAllVisuals();
     this._updateStats();
     this._updateAtmosphere();
+    // Periodic refresh: sun elevation changes gradually; update every 60s as fallback
+    this._atmosphereInterval = setInterval(() => this._updateAtmosphere(), 60000);
   }
   _rebuildScene() {
     if (this._animId) cancelAnimationFrame(this._animId);
@@ -1536,12 +1538,25 @@ export class FloorPlan3DCard extends HTMLElement {
 
   _updateAtmosphere() {
     if (!this._scene || !this._hass || !this._config) return;
-    const sEnt = this._config.sun_entity;
+    // Use configured entity or auto-detect sun.sun
+    const sEnt = this._config.sun_entity ||
+      (this._hass.states?.["sun.sun"] ? "sun.sun" : null);
     const wEnt = this._config.weather_entity;
     let isNight = false;
+    let elevation = 45; // default: midday
     let wState = "sunny";
-    if (sEnt) isNight = this._sv(sEnt) === "below_horizon";
+
+    if (sEnt) {
+      const sunState = this._hass.states?.[sEnt];
+      isNight = sunState?.state === "below_horizon";
+      elevation = sunState?.attributes?.elevation ?? (isNight ? -10 : 45);
+    }
     if (wEnt) wState = this._sv(wEnt);
+
+    // Gradual transitions: dawn (-6°→10°) and dusk (same range descending)
+    const isDawnDusk = !isNight && elevation >= -6 && elevation < 10;
+    // t=0 at horizon, t=1 at elevation 10°
+    const dawnT = isDawnDusk ? Math.max(0, (elevation + 6) / 16) : (isNight ? 0 : 1);
 
     let skyCol = 0x0a0a0f;
     let fogDensity = 0.02;
@@ -1551,17 +1566,43 @@ export class FloorPlan3DCard extends HTMLElement {
     let dirInt = 0;
 
     if (!isNight) {
-      if (wState.includes("rain") || wState.includes("storm") || wState.includes("pour")) {
-        skyCol = 0x666677; fogDensity = 0.04; hemiSky = 0x8899aa; hemiGnd = 0x444455; ambCol = 0x505060; dirInt = 0.1;
-      } else if (wState.includes("cloud")) {
-        skyCol = 0x8899aa; fogDensity = 0.025; hemiSky = 0xaabbcc; hemiGnd = 0x555566; ambCol = 0x707080; dirInt = 0.2;
-      } else if (wState.includes("fog")) {
+      const isStorm = wState.includes("lightning");
+      const isRain  = wState.includes("rain") || wState.includes("pour") || wState.includes("storm") || isStorm;
+      const isCloud = wState.includes("cloud") || wState.includes("partly");
+      const isFog   = wState.includes("fog");
+      const isSnow  = wState.includes("snow") || wState.includes("sleet") || wState.includes("hail");
+      const isWind  = wState.includes("wind");
+
+      if (isRain || isStorm) {
+        skyCol = 0x666677; fogDensity = 0.04; hemiSky = 0x8899aa; hemiGnd = 0x444455; ambCol = 0x505060; dirInt = isStorm ? 0.05 : 0.1;
+      } else if (isFog) {
         skyCol = 0x999999; fogDensity = 0.08; hemiSky = 0xaaaaaa; hemiGnd = 0x666666; ambCol = 0x606060; dirInt = 0.05;
+      } else if (isSnow) {
+        skyCol = 0xaabbcc; fogDensity = 0.035; hemiSky = 0xddeeff; hemiGnd = 0x8899aa; ambCol = 0x808898; dirInt = 0.15;
+      } else if (isCloud) {
+        skyCol = 0x8899aa; fogDensity = 0.025; hemiSky = 0xaabbcc; hemiGnd = 0x555566; ambCol = 0x707080; dirInt = 0.2;
+      } else if (isWind) {
+        skyCol = 0x88aacc; fogDensity = 0.015; hemiSky = 0xbbccdd; hemiGnd = 0x444455; ambCol = 0x7080a0; dirInt = 0.4;
       } else {
+        // sunny
         skyCol = 0x87ceeb; fogDensity = 0.01; hemiSky = 0xffffff; hemiGnd = 0x444444; ambCol = 0x9090a0; dirInt = 0.5;
       }
+
+      if (isDawnDusk) {
+        // Blend from night values toward day values at dawn/dusk
+        const nightSky = 0x1a0f00; // warm dark orange horizon
+        const r = (c) => (c >> 16) & 0xff, g = (c) => (c >> 8) & 0xff, b = (c) => c & 0xff;
+        const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+        const blend = (night, day, t) =>
+          (lerp(r(night), r(day), t) << 16) | (lerp(g(night), g(day), t) << 8) | lerp(b(night), b(day), t);
+        skyCol   = blend(nightSky, skyCol, dawnT);
+        ambCol   = blend(0x100808, ambCol, dawnT);
+        hemiSky  = blend(0x221100, hemiSky, dawnT);
+        dirInt   = dirInt * dawnT;
+        fogDensity = fogDensity * (0.5 + 0.5 * dawnT);
+      }
     } else {
-      if (wState.includes("rain") || wState.includes("storm") || wState.includes("fog")) {
+      if (wState.includes("rain") || wState.includes("storm") || wState.includes("lightning") || wState.includes("fog")) {
         skyCol = 0x050508; fogDensity = 0.04;
       }
     }
@@ -1576,10 +1617,12 @@ export class FloorPlan3DCard extends HTMLElement {
   _onHassUpdate(prev) {
     if (!this._hass || !prev) return;
     
-    const sEnt = this._config?.sun_entity;
+    const sEnt = this._config?.sun_entity || "sun.sun";
     const wEnt = this._config?.weather_entity;
-    if ((sEnt && this._hass.states?.[sEnt]?.state !== prev.states?.[sEnt]?.state) ||
-        (wEnt && this._hass.states?.[wEnt]?.state !== prev.states?.[wEnt]?.state)) {
+    const sunChanged = this._hass.states?.[sEnt]?.state !== prev.states?.[sEnt]?.state ||
+      this._hass.states?.[sEnt]?.attributes?.elevation !== prev.states?.[sEnt]?.attributes?.elevation;
+    const weatherChanged = wEnt && this._hass.states?.[wEnt]?.state !== prev.states?.[wEnt]?.state;
+    if (sunChanged || weatherChanged) {
       this._updateAtmosphere();
     }
 
@@ -1910,5 +1953,6 @@ export class FloorPlan3DCard extends HTMLElement {
   }
   disconnectedCallback() {
     if (this._animId) cancelAnimationFrame(this._animId);
+    if (this._atmosphereInterval) clearInterval(this._atmosphereInterval);
   }
 }

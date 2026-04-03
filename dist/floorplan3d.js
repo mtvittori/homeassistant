@@ -622,13 +622,13 @@ var _, v = e((() => {
 			}), window.THREE.GLTFLoader === void 0 && await new Promise((e, t) => {
 				let n = document.createElement("script");
 				n.src = r, n.onload = e, n.onerror = t, document.head.appendChild(n);
-			}), this._threeLoaded = !0, this._checkMobile(), this._initScene(), this._initialized = !0, this._updateAllVisuals(), this._updateStats(), this._updateAtmosphere());
+			}), this._threeLoaded = !0, this._checkMobile(), this._initScene(), this._initialized = !0, this._updateAllVisuals(), this._updateStats(), this._updateAtmosphere(), this._atmosphereInterval = setInterval(() => this._updateAtmosphere(), 6e4));
 		}
 		_rebuildScene() {
 			for (this._animId && cancelAnimationFrame(this._animId), this._scene.traverse((e) => {
 				e.geometry && !e.geometry._shared && e.geometry.dispose(), e.material && (Array.isArray(e.material) ? e.material.forEach((e) => e.dispose()) : e.material.dispose());
 			}); this._scene.children.length > 0;) this._scene.remove(this._scene.children[0]);
-			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._updateAtmosphere(), this._animate();
+			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._animate();
 		}
 		_initScene() {
 			let e = this.shadowRoot.getElementById("wrap"), t = this.shadowRoot.getElementById("c"), n = e.clientWidth, r = this._cardHeight;
@@ -1350,24 +1350,36 @@ var _, v = e((() => {
 		}
 		_updateAtmosphere() {
 			if (!this._scene || !this._hass || !this._config) return;
-			let e = this._config.sun_entity, t = this._config.weather_entity, n = !1, r = "sunny";
-			e && (n = this._sv(e) === "below_horizon"), t && (r = this._sv(t));
-			let i = 657935, a = .02, o = 4482730, s = 1118498, c = 3158096, l = 0;
-			n ? (r.includes("rain") || r.includes("storm") || r.includes("fog")) && (i = 328968, a = .04) : r.includes("rain") || r.includes("storm") || r.includes("pour") ? (i = 6710903, a = .04, o = 8952234, s = 4473941, c = 5263456, l = .1) : r.includes("cloud") ? (i = 8952234, a = .025, o = 11189196, s = 5592422, c = 7368832, l = .2) : r.includes("fog") ? (i = 10066329, a = .08, o = 11184810, s = 6710886, c = 6316128, l = .05) : (i = 8900331, a = .01, o = 16777215, s = 4473924, c = 9474208, l = .5), this._renderer && this._renderer.setClearColor(i), this._scene.fog && (this._scene.fog.color.setHex(i), this._scene.fog.density = a), this._ambientLight && this._ambientLight.color.setHex(c), this._hemiLight && (this._hemiLight.color.setHex(o), this._hemiLight.groundColor.setHex(s)), this._dirLight && (this._dirLight.intensity = l);
+			let e = this._config.sun_entity || (this._hass.states?.["sun.sun"] ? "sun.sun" : null), t = this._config.weather_entity, n = !1, r = 45, i = "sunny";
+			if (e) {
+				let t = this._hass.states?.[e];
+				n = t?.state === "below_horizon", r = t?.attributes?.elevation ?? (n ? -10 : 45);
+			}
+			t && (i = this._sv(t));
+			let a = !n && r >= -6 && r < 10, o = a ? Math.max(0, (r + 6) / 16) : n ? 0 : 1, s = 657935, c = .02, l = 4482730, u = 1118498, d = 3158096, f = 0;
+			if (n) (i.includes("rain") || i.includes("storm") || i.includes("lightning") || i.includes("fog")) && (s = 328968, c = .04);
+			else {
+				let e = i.includes("lightning"), t = i.includes("rain") || i.includes("pour") || i.includes("storm") || e, n = i.includes("cloud") || i.includes("partly"), r = i.includes("fog"), p = i.includes("snow") || i.includes("sleet") || i.includes("hail"), m = i.includes("wind");
+				if (t || e ? (s = 6710903, c = .04, l = 8952234, u = 4473941, d = 5263456, f = e ? .05 : .1) : r ? (s = 10066329, c = .08, l = 11184810, u = 6710886, d = 6316128, f = .05) : p ? (s = 11189196, c = .035, l = 14544639, u = 8952234, d = 8423576, f = .15) : n ? (s = 8952234, c = .025, l = 11189196, u = 5592422, d = 7368832, f = .2) : m ? (s = 8956620, c = .015, l = 12307677, u = 4473941, d = 7372960, f = .4) : (s = 8900331, c = .01, l = 16777215, u = 4473924, d = 9474208, f = .5), a) {
+					let e = (e) => e >> 16 & 255, t = (e) => e >> 8 & 255, n = (e) => e & 255, r = (e, t, n) => Math.round(e + (t - e) * n), i = (i, a, o) => r(e(i), e(a), o) << 16 | r(t(i), t(a), o) << 8 | r(n(i), n(a), o);
+					s = i(1707776, s, o), d = i(1050632, d, o), l = i(2232576, l, o), f *= o, c *= .5 + .5 * o;
+				}
+			}
+			this._renderer && this._renderer.setClearColor(s), this._scene.fog && (this._scene.fog.color.setHex(s), this._scene.fog.density = c), this._ambientLight && this._ambientLight.color.setHex(d), this._hemiLight && (this._hemiLight.color.setHex(l), this._hemiLight.groundColor.setHex(u)), this._dirLight && (this._dirLight.intensity = f);
 		}
 		_onHassUpdate(e) {
 			if (!this._hass || !e) return;
-			let t = this._config?.sun_entity, n = this._config?.weather_entity;
-			(t && this._hass.states?.[t]?.state !== e.states?.[t]?.state || n && this._hass.states?.[n]?.state !== e.states?.[n]?.state) && this._updateAtmosphere();
-			let r = /* @__PURE__ */ new Set(), i = !1;
+			let t = this._config?.sun_entity || "sun.sun", n = this._config?.weather_entity, r = this._hass.states?.[t]?.state !== e.states?.[t]?.state || this._hass.states?.[t]?.attributes?.elevation !== e.states?.[t]?.attributes?.elevation, i = n && this._hass.states?.[n]?.state !== e.states?.[n]?.state;
+			(r || i) && this._updateAtmosphere();
+			let a = /* @__PURE__ */ new Set(), o = !1;
 			for (let t in this._entityRoomMap) {
-				let n = this._hass.states?.[t], i = e.states?.[t];
-				(n?.state !== i?.state || n?.attributes?.brightness !== i?.attributes?.brightness || n?.attributes?.rgb_color?.join() !== i?.attributes?.rgb_color?.join()) && r.add(this._entityRoomMap[t]);
+				let n = this._hass.states?.[t], r = e.states?.[t];
+				(n?.state !== r?.state || n?.attributes?.brightness !== r?.attributes?.brightness || n?.attributes?.rgb_color?.join() !== r?.attributes?.rgb_color?.join()) && a.add(this._entityRoomMap[t]);
 			}
-			for (let t of this._statSensors) this._hass.states?.[t.entity]?.state !== e.states?.[t.entity]?.state && (i = !0);
-			r.forEach((e) => {
+			for (let t of this._statSensors) this._hass.states?.[t.entity]?.state !== e.states?.[t.entity]?.state && (o = !0);
+			a.forEach((e) => {
 				this._updateRoomVisual(e), this._labelsDirty = !0;
-			}), i && this._updateStats(), this._selectedRoomId && r.has(this._selectedRoomId) && !this._editMode && this._openPanel(this._selectedRoomId);
+			}), o && this._updateStats(), this._selectedRoomId && a.has(this._selectedRoomId) && !this._editMode && this._openPanel(this._selectedRoomId);
 		}
 		_updateRoomVisual(e) {
 			let t = this._rooms.find((t) => t.id === e);
@@ -1397,9 +1409,8 @@ var _, v = e((() => {
 		_updateStats() {
 			let e = this.shadowRoot.getElementById("stats");
 			!e || !this._hass || (e.innerHTML = this._statSensors.map((e) => {
-				let t = this._sv(e.entity);
-				let u = e.unit ?? this._hass?.states?.[e.entity]?.attributes?.unit_of_measurement ?? "";
-				return t === "unavailable" ? "" : `<div class="pill">${e.label} <strong>${t}${u}</strong></div>`;
+				let t = this._sv(e.entity), n = e.unit ?? this._hass?.states?.[e.entity]?.attributes?.unit_of_measurement ?? "";
+				return t === "unavailable" ? "" : `<div class="pill">${e.label} <strong>${t}${n}</strong></div>`;
 			}).join(""));
 		}
 		_openPanel(e) {
@@ -1502,7 +1513,7 @@ var _, v = e((() => {
 			t && (t.textContent = e, t.classList.add("show"), clearTimeout(this._toastT), this._toastT = setTimeout(() => t.classList.remove("show"), 1500));
 		}
 		disconnectedCallback() {
-			this._animId && cancelAnimationFrame(this._animId);
+			this._animId && cancelAnimationFrame(this._animId), this._atmosphereInterval && clearInterval(this._atmosphereInterval);
 		}
 	};
 })), x, S, C = e((() => {
