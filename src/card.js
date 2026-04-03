@@ -239,6 +239,7 @@ export class FloorPlan3DCard extends HTMLElement {
     this._initialized = true;
     this._updateAllVisuals();
     this._updateStats();
+    this._updateAtmosphere();
   }
   _rebuildScene() {
     if (this._animId) cancelAnimationFrame(this._animId);
@@ -1706,8 +1707,9 @@ export class FloorPlan3DCard extends HTMLElement {
     el.innerHTML = this._statSensors
       .map((s) => {
         const v = this._sv(s.entity);
+        const unit = s.unit ?? this._hass?.states?.[s.entity]?.attributes?.unit_of_measurement ?? "";
         return v !== "unavailable"
-          ? `<div class="pill">${s.label} <strong>${v}\u00b0C</strong></div>`
+          ? `<div class="pill">${s.label} <strong>${v}${unit}</strong></div>`
           : "";
       })
       .join("");
