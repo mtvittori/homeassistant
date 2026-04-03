@@ -622,13 +622,13 @@ var _, v = e((() => {
 			}), window.THREE.GLTFLoader === void 0 && await new Promise((e, t) => {
 				let n = document.createElement("script");
 				n.src = r, n.onload = e, n.onerror = t, document.head.appendChild(n);
-			}), this._threeLoaded = !0, this._checkMobile(), this._initScene(), this._initialized = !0, this._updateAllVisuals(), this._updateStats());
+			}), this._threeLoaded = !0, this._checkMobile(), this._initScene(), this._initialized = !0, this._updateAllVisuals(), this._updateStats(), this._updateAtmosphere());
 		}
 		_rebuildScene() {
 			for (this._animId && cancelAnimationFrame(this._animId), this._scene.traverse((e) => {
 				e.geometry && !e.geometry._shared && e.geometry.dispose(), e.material && (Array.isArray(e.material) ? e.material.forEach((e) => e.dispose()) : e.material.dispose());
 			}); this._scene.children.length > 0;) this._scene.remove(this._scene.children[0]);
-			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._animate();
+			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._updateAtmosphere(), this._animate();
 		}
 		_initScene() {
 			let e = this.shadowRoot.getElementById("wrap"), t = this.shadowRoot.getElementById("c"), n = e.clientWidth, r = this._cardHeight;
@@ -1398,7 +1398,8 @@ var _, v = e((() => {
 			let e = this.shadowRoot.getElementById("stats");
 			!e || !this._hass || (e.innerHTML = this._statSensors.map((e) => {
 				let t = this._sv(e.entity);
-				return t === "unavailable" ? "" : `<div class="pill">${e.label} <strong>${t}\u00b0C</strong></div>`;
+				let u = e.unit ?? this._hass?.states?.[e.entity]?.attributes?.unit_of_measurement ?? "";
+				return t === "unavailable" ? "" : `<div class="pill">${e.label} <strong>${t}${u}</strong></div>`;
 			}).join(""));
 		}
 		_openPanel(e) {
