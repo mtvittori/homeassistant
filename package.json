@@ -2,7 +2,7 @@
   "name": "homeassistant",
   "version": "1.0.0",
   "description": "Una card interattiva in 3D per Home Assistant per visualizzare e controllare la tua casa. Supporta luci (con effetti, aloni e coni di luce dinamici configurabili per tipo di lampadario), entità clima, media e molto altro.  Dispone di un editor 3D drag-and-drop integrato per la creazione delle stanze.",
-  "main": "dist/floorplan3d.js",
+  "main": "floorplan3d.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

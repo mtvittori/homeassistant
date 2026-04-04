@@ -1,6 +1,6 @@
 {
   "name": "FloorPlan 3D Card",
   "render_readme": true,
-  "filename": "dist/floorplan3d.js",
+  "filename": "floorplan3d.js",
   "content_in_root": false
 }

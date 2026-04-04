@@ -9,7 +9,7 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'floorplan3d.js',
     },
-    outDir: 'dist',
-    emptyOutDir: true,
+    outDir: '.',
+    emptyOutDir: false,
   },
 });
