@@ -729,8 +729,8 @@ var _, v = e((() => {
 			let n = new window.THREE.DirectionalLight(16774374, .35);
 			this._dirLight = n, n.position.set(10, 18, 12), n.castShadow = !0, n.shadow.mapSize.set(512, 512), n.shadow.camera.left = -15, n.shadow.camera.right = 15, n.shadow.camera.top = 15, n.shadow.camera.bottom = -15, n.shadow.bias = -.001, this._scene.add(n);
 			let r = new window.THREE.Mesh(t.gP, new THREE.MeshStandardMaterial({
-				color: 789524,
-				roughness: 1
+				color: 1387024,
+				roughness: .95
 			}));
 			r.rotation.x = -Math.PI / 2, r.position.y = -.02, r.receiveShadow = !0, this._scene.add(r);
 			let a = Infinity, o = -Infinity, s = Infinity, c = -Infinity;
@@ -913,6 +913,235 @@ var _, v = e((() => {
 						e.isMesh && (e.castShadow = !0, e.receiveShadow = !0);
 					}), this._scene.add(d), this._furnMeshes.push(d);
 				}, void 0, () => l()) : l();
+			}), this._buildOutdoor(a, o, s, c);
+		}
+		_buildOutdoor(e, t, n, r) {
+			let i = window.THREE, a = (e + t) / 2, o = (n + r) / 2, s = t - e, c = r - n, l = [
+				{
+					x: a - s * .5 - 4,
+					z: o,
+					w: 8,
+					d: c + 10
+				},
+				{
+					x: a + s * .5 - 4,
+					z: o,
+					w: 8,
+					d: c + 10
+				},
+				{
+					x: a,
+					z: n - 5,
+					w: s + 14,
+					d: 8
+				},
+				{
+					x: a,
+					z: r + 5,
+					w: s + 14,
+					d: 8
+				}
+			], u = [
+				1981714,
+				1520912,
+				2245653,
+				1718802
+			];
+			l.forEach((e, t) => {
+				let n = new i.Mesh(new i.PlaneGeometry(e.w, e.d), new i.MeshStandardMaterial({
+					color: u[t % u.length],
+					roughness: .95
+				}));
+				n.rotation.x = -Math.PI / 2, n.position.set(e.x, -.01, e.z), n.receiveShadow = !0, this._scene.add(n);
+			});
+			let d = e + s * .25, f = r + 4.5, p = 3.5, m = new i.MeshStandardMaterial({
+				color: 4861460,
+				roughness: .95
+			});
+			[
+				[
+					d,
+					f - p / 2,
+					5.2,
+					.15
+				],
+				[
+					d,
+					f + p / 2,
+					5.2,
+					.15
+				],
+				[
+					d - 5 / 2,
+					f,
+					.15,
+					p
+				],
+				[
+					d + 5 / 2,
+					f,
+					.15,
+					p
+				]
+			].forEach(([e, t, n, r]) => {
+				let a = new i.Mesh(new i.BoxGeometry(n, .25, r), m);
+				a.position.set(e, .125, t), a.castShadow = !0, a.receiveShadow = !0, this._scene.add(a);
+			});
+			let h = new i.Mesh(new i.BoxGeometry(4.95, .08, p - .05), new i.MeshStandardMaterial({
+				color: 2890254,
+				roughness: 1
+			}));
+			h.position.set(d, .16, f), h.receiveShadow = !0, this._scene.add(h);
+			let g = new i.MeshStandardMaterial({
+				color: 3042080,
+				roughness: .9
+			}), _ = new i.MeshStandardMaterial({
+				color: 3977298,
+				roughness: .85
+			}), v = new i.MeshStandardMaterial({
+				color: 13944885,
+				roughness: .8
+			});
+			for (let e = 0; e < 3; e++) for (let t = 0; t < 5; t++) {
+				let n = d - 5 / 2 + .6 + 4 / 4 * t, r = f - p / 2 + .5 + e * ((p - .9) / 2), a = .28 + (t + e * 3) % 5 * .06, o = new i.Mesh(new i.CylinderGeometry(.03, .04, a, 6), g);
+				o.position.set(n, .22 + a / 2, r), o.castShadow = !0, this._scene.add(o);
+				let s = .14 + e % 2 * .04, c = new i.Mesh(new i.SphereGeometry(s, 7, 5), t % 3 == 0 ? v : _);
+				c.position.set(n, .22 + a + s * .7, r), c.castShadow = !0, this._scene.add(c);
+			}
+			let y = new i.MeshStandardMaterial({
+				color: 5913114,
+				roughness: .9
+			}), b = new i.Mesh(new i.CylinderGeometry(.03, .03, .8, 6), y);
+			b.position.set(d + 5 / 2 - .3, .4, f - p / 2 - .1), this._scene.add(b);
+			let x = new i.Mesh(new i.BoxGeometry(.5, .22, .04), new i.MeshStandardMaterial({
+				color: 8017200,
+				roughness: .9
+			}));
+			x.position.set(d + 5 / 2 - .3, .72, f - p / 2 - .1), this._scene.add(x);
+			let S = t + .8, C = o, w = 6.5, T = 2.7, E = new i.MeshStandardMaterial({
+				color: 3816002,
+				roughness: .9
+			}), D = new i.Mesh(new i.PlaneGeometry(w, 8), E);
+			D.rotation.x = -Math.PI / 2, D.position.set(S + w / 2, 0, C), D.receiveShadow = !0, this._scene.add(D);
+			let O = new i.MeshStandardMaterial({
+				color: 4144978,
+				transparent: !0,
+				opacity: .55,
+				roughness: .85
+			}), k = new i.MeshStandardMaterial({
+				color: 3026494,
+				roughness: .9
+			}), A = new i.MeshStandardMaterial({
+				color: 4539727,
+				roughness: .85
+			}), j = new i.Mesh(new i.PlaneGeometry(w, 6), A);
+			j.rotation.x = -Math.PI / 2, j.position.set(S + w / 2, .003, C), j.receiveShadow = !0, this._scene.add(j);
+			let M = new i.Mesh(new i.BoxGeometry(w, T, .14), O);
+			M.position.set(S + w / 2, T / 2, C - 6 / 2), M.castShadow = !0, M.receiveShadow = !0, this._scene.add(M);
+			let N = new i.Mesh(new i.BoxGeometry(.14, T, 6), O);
+			N.position.set(S, T / 2, C), N.castShadow = !0, N.receiveShadow = !0, this._scene.add(N);
+			let P = new i.Mesh(new i.BoxGeometry(.14, T, 6), O);
+			P.position.set(S + w, T / 2, C), P.castShadow = !0, P.receiveShadow = !0, this._scene.add(P);
+			let F = new i.Mesh(new i.BoxGeometry(w + .28, .16, 6.28), k);
+			F.position.set(S + w / 2, T + .08, C), F.castShadow = !0, F.receiveShadow = !0, this._scene.add(F);
+			let I = new i.MeshStandardMaterial({
+				color: 2763324,
+				roughness: .9
+			});
+			[S + .07, S + w - .07].forEach((e) => {
+				let t = new i.Mesh(new i.BoxGeometry(.14, T, .14), I);
+				t.position.set(e, T / 2, C + 6 / 2), this._scene.add(t);
+			});
+			let L = new i.Mesh(new i.BoxGeometry(w, .16, .14), I);
+			L.position.set(S + w / 2, T - .08, C + 6 / 2), this._scene.add(L);
+			let R = [{
+				color: 1986464,
+				x: S + 1.6,
+				z: C,
+				ry: 0
+			}, {
+				color: 10493984,
+				x: S + 4.8,
+				z: C,
+				ry: 0
+			}], z = new i.BoxGeometry(3.7, .6, 1.55), B = new i.BoxGeometry(2.1, .52, 1.42), V = new i.CylinderGeometry(.27, .27, .2, 12), H = new i.MeshStandardMaterial({
+				color: 1710618,
+				roughness: .9
+			}), U = new i.MeshStandardMaterial({
+				color: 11579576,
+				metalness: .6,
+				roughness: .4
+			});
+			R.forEach(({ color: e, x: t, z: n }) => {
+				let r = new i.MeshStandardMaterial({
+					color: e,
+					roughness: .35,
+					metalness: .45
+				}), a = new i.Mesh(z, r);
+				a.position.set(t, .32, n), a.castShadow = !0, a.receiveShadow = !0, this._scene.add(a);
+				let o = new i.Mesh(B, r);
+				o.position.set(t - .2, .86, n), o.castShadow = !0, this._scene.add(o);
+				let s = new i.Mesh(new i.BoxGeometry(.05, .44, 1.3), new i.MeshStandardMaterial({
+					color: 4491434,
+					transparent: !0,
+					opacity: .35,
+					metalness: .1
+				}));
+				s.position.set(t + .85, .84, n), this._scene.add(s);
+				let c = new i.Mesh(new i.BoxGeometry(.05, .4, 1.3), new i.MeshStandardMaterial({
+					color: 4491434,
+					transparent: !0,
+					opacity: .35,
+					metalness: .1
+				}));
+				c.position.set(t - 1.25, .84, n), this._scene.add(c), [
+					[-1.45, -.72],
+					[-1.45, .72],
+					[1.45, -.72],
+					[1.45, .72]
+				].forEach(([e, r]) => {
+					let a = new i.Mesh(V, H);
+					a.rotation.z = Math.PI / 2, a.position.set(t + e, .27, n + r), a.castShadow = !0, this._scene.add(a);
+					let o = new i.Mesh(new i.CylinderGeometry(.15, .15, .22, 10), U);
+					o.rotation.z = Math.PI / 2, o.position.set(t + e, .27, n + r), this._scene.add(o);
+				});
+				let l = new i.MeshStandardMaterial({
+					color: 16777164,
+					emissive: 16777164,
+					emissiveIntensity: .3
+				});
+				[[-.5], [.5]].forEach(([e]) => {
+					let r = new i.Mesh(new i.BoxGeometry(.08, .1, .2), l);
+					r.position.set(t + 1.86, .38, n + e), this._scene.add(r);
+				});
+				let u = new i.MeshStandardMaterial({
+					color: 16720384,
+					emissive: 16720384,
+					emissiveIntensity: .25
+				});
+				[[-.5], [.5]].forEach(([e]) => {
+					let r = new i.Mesh(new i.BoxGeometry(.08, .1, .2), u);
+					r.position.set(t - 1.86, .38, n + e), this._scene.add(r);
+				});
+			});
+			let W = new i.MeshStandardMaterial({
+				color: 4861458,
+				roughness: .95
+			}), G = new i.MeshStandardMaterial({
+				color: 1924120,
+				roughness: .9
+			});
+			[
+				[e - 2.5, n - 2],
+				[e - 2.5, r + 2],
+				[t + 1, n - 2.5],
+				[d - 5 / 2 - 1.5, f],
+				[a - 3, r + 8]
+			].forEach(([e, t]) => {
+				let n = 1.4 + Math.abs((e + t) % 1) * .6, r = new i.Mesh(new i.CylinderGeometry(.12, .16, n, 8), W);
+				r.position.set(e, n / 2, t), r.castShadow = !0, this._scene.add(r);
+				let a = .7 + Math.abs(e * t % .5) * .4, o = new i.Mesh(new i.SphereGeometry(a, 8, 6), G);
+				o.position.set(e, n + a * .65, t), o.castShadow = !0, this._scene.add(o);
 			});
 		}
 		_setupControls(e) {

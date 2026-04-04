@@ -463,7 +463,7 @@ export class FloorPlan3DCard extends HTMLElement {
     this._scene.add(dir);
     const gnd = new window.THREE.Mesh(
       G.gP,
-      new THREE.MeshStandardMaterial({ color: 0x0c0c14, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: 0x152a10, roughness: 0.95 }),
     );
     gnd.rotation.x = -Math.PI / 2;
     gnd.position.y = -0.02;
@@ -714,7 +714,7 @@ export class FloorPlan3DCard extends HTMLElement {
           box.getCenter(center);
           model.position.sub(center.multiplyScalar(scale));
           model.position.y += fh / 2;
-          
+
           const group = new window.THREE.Group();
           group.add(model);
           group.position.set(f.x, 0, f.z);
@@ -727,6 +727,257 @@ export class FloorPlan3DCard extends HTMLElement {
       } else {
         buildFallback();
       }
+    });
+    this._buildOutdoor(mnX, mxX, mnZ, mxZ);
+  }
+  _buildOutdoor(mnX, mxX, mnZ, mxZ) {
+    const T = window.THREE;
+    const cx = (mnX + mxX) / 2;
+    const cz = (mnZ + mxZ) / 2;
+    const bldW = mxX - mnX;
+    const bldD = mxZ - mnZ;
+
+    // --- GRASS PATCHES (variation over the base ground) ---
+    const grassPatches = [
+      { x: cx - bldW * 0.5 - 4, z: cz, w: 8, d: bldD + 10 },
+      { x: cx + bldW * 0.5 - 4, z: cz, w: 8, d: bldD + 10 },
+      { x: cx, z: mnZ - 5, w: bldW + 14, d: 8 },
+      { x: cx, z: mxZ + 5, w: bldW + 14, d: 8 },
+    ];
+    const grassMats = [0x1e3d12, 0x173510, 0x224415, 0x1a3a12];
+    grassPatches.forEach((gp, i) => {
+      const m = new T.Mesh(
+        new T.PlaneGeometry(gp.w, gp.d),
+        new T.MeshStandardMaterial({ color: grassMats[i % grassMats.length], roughness: 0.95 })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(gp.x, -0.01, gp.z);
+      m.receiveShadow = true;
+      this._scene.add(m);
+    });
+
+    // --- KITCHEN GARDEN (south-west of building) ---
+    const gardenCX = mnX + bldW * 0.25;
+    const gardenCZ = mxZ + 4.5;
+    const gardenW = 5;
+    const gardenD = 3.5;
+
+    // Raised bed frame (dark wood border)
+    const bedBorderMat = new T.MeshStandardMaterial({ color: 0x4a2e14, roughness: 0.95 });
+    [[gardenCX, gardenCZ - gardenD / 2, gardenW + 0.2, 0.15], // front
+     [gardenCX, gardenCZ + gardenD / 2, gardenW + 0.2, 0.15], // back
+     [gardenCX - gardenW / 2, gardenCZ, 0.15, gardenD],        // left
+     [gardenCX + gardenW / 2, gardenCZ, 0.15, gardenD],        // right
+    ].forEach(([bx, bz, bw, bd]) => {
+      const border = new T.Mesh(new T.BoxGeometry(bw, 0.25, bd), bedBorderMat);
+      border.position.set(bx, 0.125, bz);
+      border.castShadow = true;
+      border.receiveShadow = true;
+      this._scene.add(border);
+    });
+
+    // Soil fill
+    const soilMesh = new T.Mesh(
+      new T.BoxGeometry(gardenW - 0.05, 0.08, gardenD - 0.05),
+      new T.MeshStandardMaterial({ color: 0x2c1a0e, roughness: 1 })
+    );
+    soilMesh.position.set(gardenCX, 0.16, gardenCZ);
+    soilMesh.receiveShadow = true;
+    this._scene.add(soilMesh);
+
+    // Vegetable plants in rows
+    const stemMat = new T.MeshStandardMaterial({ color: 0x2e6b20, roughness: 0.9 });
+    const leafMat = new T.MeshStandardMaterial({ color: 0x3cb052, roughness: 0.85 });
+    const flowerMat = new T.MeshStandardMaterial({ color: 0xd4c835, roughness: 0.8 });
+    const rows = 3, cols = 5;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const px = gardenCX - (gardenW / 2) + 0.6 + c * ((gardenW - 1.0) / (cols - 1));
+        const pz = gardenCZ - (gardenD / 2) + 0.5 + r * ((gardenD - 0.9) / (rows - 1));
+        const h = 0.28 + (((c + r * 3) % 5) * 0.06);
+        const stem = new T.Mesh(new T.CylinderGeometry(0.03, 0.04, h, 6), stemMat);
+        stem.position.set(px, 0.22 + h / 2, pz);
+        stem.castShadow = true;
+        this._scene.add(stem);
+        const leafRadius = 0.14 + (r % 2) * 0.04;
+        const top = new T.Mesh(new T.SphereGeometry(leafRadius, 7, 5), (c % 3 === 0) ? flowerMat : leafMat);
+        top.position.set(px, 0.22 + h + leafRadius * 0.7, pz);
+        top.castShadow = true;
+        this._scene.add(top);
+      }
+    }
+
+    // Garden label sign (thin post + board)
+    const signPostMat = new T.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 });
+    const signPost = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 0.8, 6), signPostMat);
+    signPost.position.set(gardenCX + gardenW / 2 - 0.3, 0.4, gardenCZ - gardenD / 2 - 0.1);
+    this._scene.add(signPost);
+    const signBoard = new T.Mesh(
+      new T.BoxGeometry(0.5, 0.22, 0.04),
+      new T.MeshStandardMaterial({ color: 0x7a5530, roughness: 0.9 })
+    );
+    signBoard.position.set(gardenCX + gardenW / 2 - 0.3, 0.72, gardenCZ - gardenD / 2 - 0.1);
+    this._scene.add(signBoard);
+
+    // --- DRIVEWAY leading to garage ---
+    const garageX = mxX + 0.8;
+    const garageZ = cz;
+    const garageW = 6.5;
+    const garageD = 6.0;
+    const garageH = 2.7;
+
+    const drivewayMat = new T.MeshStandardMaterial({ color: 0x3a3a42, roughness: 0.9 });
+    const driveway = new T.Mesh(new T.PlaneGeometry(garageW, 8), drivewayMat);
+    driveway.rotation.x = -Math.PI / 2;
+    driveway.position.set(garageX + garageW / 2, 0, garageZ);
+    driveway.receiveShadow = true;
+    this._scene.add(driveway);
+
+    // --- GARAGE STRUCTURE ---
+    const gWallMat = new T.MeshStandardMaterial({ color: 0x3f3f52, transparent: true, opacity: 0.55, roughness: 0.85 });
+    const gRoofMat = new T.MeshStandardMaterial({ color: 0x2e2e3e, roughness: 0.9 });
+    const gFloorMat = new T.MeshStandardMaterial({ color: 0x45454f, roughness: 0.85 });
+
+    // Garage floor
+    const garageFloor = new T.Mesh(new T.PlaneGeometry(garageW, garageD), gFloorMat);
+    garageFloor.rotation.x = -Math.PI / 2;
+    garageFloor.position.set(garageX + garageW / 2, 0.003, garageZ);
+    garageFloor.receiveShadow = true;
+    this._scene.add(garageFloor);
+
+    // Back wall
+    const backWall = new T.Mesh(new T.BoxGeometry(garageW, garageH, 0.14), gWallMat);
+    backWall.position.set(garageX + garageW / 2, garageH / 2, garageZ - garageD / 2);
+    backWall.castShadow = true;
+    backWall.receiveShadow = true;
+    this._scene.add(backWall);
+
+    // Left side wall
+    const leftWall = new T.Mesh(new T.BoxGeometry(0.14, garageH, garageD), gWallMat);
+    leftWall.position.set(garageX, garageH / 2, garageZ);
+    leftWall.castShadow = true;
+    leftWall.receiveShadow = true;
+    this._scene.add(leftWall);
+
+    // Right side wall
+    const rightWall = new T.Mesh(new T.BoxGeometry(0.14, garageH, garageD), gWallMat);
+    rightWall.position.set(garageX + garageW, garageH / 2, garageZ);
+    rightWall.castShadow = true;
+    rightWall.receiveShadow = true;
+    this._scene.add(rightWall);
+
+    // Flat roof
+    const garageRoof = new T.Mesh(new T.BoxGeometry(garageW + 0.28, 0.16, garageD + 0.28), gRoofMat);
+    garageRoof.position.set(garageX + garageW / 2, garageH + 0.08, garageZ);
+    garageRoof.castShadow = true;
+    garageRoof.receiveShadow = true;
+    this._scene.add(garageRoof);
+
+    // Garage door frame (front, open - just two vertical posts)
+    const doorPostMat = new T.MeshStandardMaterial({ color: 0x2a2a3c, roughness: 0.9 });
+    [garageX + 0.07, garageX + garageW - 0.07].forEach(px => {
+      const post = new T.Mesh(new T.BoxGeometry(0.14, garageH, 0.14), doorPostMat);
+      post.position.set(px, garageH / 2, garageZ + garageD / 2);
+      this._scene.add(post);
+    });
+    // Door lintel
+    const lintel = new T.Mesh(new T.BoxGeometry(garageW, 0.16, 0.14), doorPostMat);
+    lintel.position.set(garageX + garageW / 2, garageH - 0.08, garageZ + garageD / 2);
+    this._scene.add(lintel);
+
+    // --- TWO CARS ---
+    const carConfigs = [
+      { color: 0x1e4fa0, x: garageX + 1.6, z: garageZ, ry: 0 },
+      { color: 0xa02020, x: garageX + 4.8, z: garageZ, ry: 0 },
+    ];
+    const carBodyGeo = new T.BoxGeometry(3.7, 0.6, 1.55);
+    const carCabinGeo = new T.BoxGeometry(2.1, 0.52, 1.42);
+    const wheelGeo = new T.CylinderGeometry(0.27, 0.27, 0.2, 12);
+    const wheelMat = new T.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+    const rimMat = new T.MeshStandardMaterial({ color: 0xb0b0b8, metalness: 0.6, roughness: 0.4 });
+
+    carConfigs.forEach(({ color, x, z }) => {
+      const carMat = new T.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.45 });
+
+      // Body
+      const body = new T.Mesh(carBodyGeo, carMat);
+      body.position.set(x, 0.32, z);
+      body.castShadow = true;
+      body.receiveShadow = true;
+      this._scene.add(body);
+
+      // Cabin (slightly narrower/shorter box on top)
+      const cabin = new T.Mesh(carCabinGeo, carMat);
+      cabin.position.set(x - 0.2, 0.86, z);
+      cabin.castShadow = true;
+      this._scene.add(cabin);
+
+      // Windshield tint (dark transparent box)
+      const windshield = new T.Mesh(
+        new T.BoxGeometry(0.05, 0.44, 1.3),
+        new T.MeshStandardMaterial({ color: 0x4488aa, transparent: true, opacity: 0.35, metalness: 0.1 })
+      );
+      windshield.position.set(x + 0.85, 0.84, z);
+      this._scene.add(windshield);
+
+      // Rear window
+      const rearWindow = new T.Mesh(
+        new T.BoxGeometry(0.05, 0.4, 1.3),
+        new T.MeshStandardMaterial({ color: 0x4488aa, transparent: true, opacity: 0.35, metalness: 0.1 })
+      );
+      rearWindow.position.set(x - 1.25, 0.84, z);
+      this._scene.add(rearWindow);
+
+      // 4 Wheels
+      [[-1.45, -0.72], [-1.45, 0.72], [1.45, -0.72], [1.45, 0.72]].forEach(([dx, dz]) => {
+        const wheel = new T.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(x + dx, 0.27, z + dz);
+        wheel.castShadow = true;
+        this._scene.add(wheel);
+
+        // Rim (thin cylinder slightly inset)
+        const rim = new T.Mesh(new T.CylinderGeometry(0.15, 0.15, 0.22, 10), rimMat);
+        rim.rotation.z = Math.PI / 2;
+        rim.position.set(x + dx, 0.27, z + dz);
+        this._scene.add(rim);
+      });
+
+      // Headlights
+      const headlightMat = new T.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.3 });
+      [[-0.5], [0.5]].forEach(([dz]) => {
+        const hl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), headlightMat);
+        hl.position.set(x + 1.86, 0.38, z + dz);
+        this._scene.add(hl);
+      });
+
+      // Tail lights
+      const taillightMat = new T.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 0.25 });
+      [[-0.5], [0.5]].forEach(([dz]) => {
+        const tl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), taillightMat);
+        tl.position.set(x - 1.86, 0.38, z + dz);
+        this._scene.add(tl);
+      });
+    });
+
+    // --- SOME TREES for atmosphere ---
+    const trunkMat = new T.MeshStandardMaterial({ color: 0x4a2e12, roughness: 0.95 });
+    const foliageMat = new T.MeshStandardMaterial({ color: 0x1d5c18, roughness: 0.9 });
+    const treePosns = [
+      [mnX - 2.5, mnZ - 2], [mnX - 2.5, mxZ + 2], [mxX + 1, mnZ - 2.5],
+      [gardenCX - gardenW / 2 - 1.5, gardenCZ], [cx - 3, mxZ + 8],
+    ];
+    treePosns.forEach(([tx, tz]) => {
+      const trunkH = 1.4 + Math.abs((tx + tz) % 1) * 0.6;
+      const trunk = new T.Mesh(new T.CylinderGeometry(0.12, 0.16, trunkH, 8), trunkMat);
+      trunk.position.set(tx, trunkH / 2, tz);
+      trunk.castShadow = true;
+      this._scene.add(trunk);
+      const foliageR = 0.7 + Math.abs((tx * tz) % 0.5) * 0.4;
+      const foliage = new T.Mesh(new T.SphereGeometry(foliageR, 8, 6), foliageMat);
+      foliage.position.set(tx, trunkH + foliageR * 0.65, tz);
+      foliage.castShadow = true;
+      this._scene.add(foliage);
     });
   }
   _setupControls(cv) {
