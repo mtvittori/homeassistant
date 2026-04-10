@@ -12,6 +12,7 @@ export const _haEditorSchema = [
   },
   { name: "sun_entity", label: "Entità Sole (giorno/notte)", selector: { entity: { domain: "sun" } } },
   { name: "weather_entity", label: "Entità Meteo (atmosfera)", selector: { entity: { domain: "weather" } } },
+  // `cars` is a YAML array configured directly — not exposed as a form field
 ];
 
 export class FloorPlan3DCardEditor extends HTMLElement {

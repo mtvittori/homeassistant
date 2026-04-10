@@ -91,6 +91,9 @@ export class FloorPlan3DCard extends HTMLElement {
       custom_walls: [],
       furniture: [],
       stats: [],
+      // cars: [] — optional, overrides the 2 default garage cars.
+      // Each entry: { color: '#1e4fa0', x: 0, z: 0, rotation: 0 }
+      // For GLTF models add: { url: '/local/my_car.glb', x: 0, z: 0, rotation: 90 }
     };
   }
   setConfig(c) {
@@ -118,6 +121,7 @@ export class FloorPlan3DCard extends HTMLElement {
     this._rooms.sort((a, b) => (a.z_order || 0) - (b.z_order || 0));
     this._cwalls = JSON.parse(JSON.stringify(c.custom_walls || DEF_CW));
     this._furniture = JSON.parse(JSON.stringify(c.furniture || DEF_FURN));
+    this._cars = JSON.parse(JSON.stringify(c.cars || []));
     this._statSensors = c.stats || DEF_STATS;
     this._cardHeight = c.height || 450;
     this._wallHeight = c.wall_height || 2.4;
@@ -261,6 +265,11 @@ export class FloorPlan3DCard extends HTMLElement {
     this._furnMeshes = [];
     this._cwMeshes = [];
     this._lightFixtures = {};
+    this._skyDomeMesh = null;
+    this._sunMesh = null;
+    this._moonMesh = null;
+    this._starsMesh = null;
+    this._cloudMeshes = [];
     this._wallGroup = new THREE.Group();
     this._scene.add(this._wallGroup);
     this._buildSceneContent();
@@ -469,6 +478,7 @@ export class FloorPlan3DCard extends HTMLElement {
     gnd.position.y = -0.02;
     gnd.receiveShadow = true;
     this._scene.add(gnd);
+    this._buildSkyDome();
     let mnX = Infinity,
       mxX = -Infinity,
       mnZ = Infinity,
@@ -730,6 +740,144 @@ export class FloorPlan3DCard extends HTMLElement {
     });
     this._buildOutdoor(mnX, mxX, mnZ, mxZ);
   }
+  _buildSkyDome() {
+    const T = window.THREE;
+    // Sky gradient dome (BackSide sphere with vertex colors)
+    const skyGeo = new T.SphereGeometry(80, 32, 16);
+    const vCount = skyGeo.attributes.position.count;
+    const colArr = new Float32Array(vCount * 3);
+    skyGeo.setAttribute('color', new T.BufferAttribute(colArr, 3));
+    this._skyDomeMat = new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, depthWrite: false, fog: false });
+    this._skyDomeMesh = new T.Mesh(skyGeo, this._skyDomeMat);
+    this._skyDomeMesh.renderOrder = -100;
+    this._scene.add(this._skyDomeMesh);
+
+    // Sun disc
+    const sunGeo = new T.SphereGeometry(1.5, 14, 10);
+    this._sunMat = new T.MeshBasicMaterial({ color: 0xfffaaa, fog: false });
+    this._sunMesh = new T.Mesh(sunGeo, this._sunMat);
+    this._sunMesh.visible = false;
+    this._scene.add(this._sunMesh);
+
+    // Sun corona glow (slightly larger, orange-white)
+    const coronaGeo = new T.SphereGeometry(2.5, 12, 8);
+    this._coronaMat = new T.MeshBasicMaterial({ color: 0xffe060, transparent: true, opacity: 0.2, fog: false, depthWrite: false });
+    this._coronaMesh = new T.Mesh(coronaGeo, this._coronaMat);
+    this._coronaMesh.visible = false;
+    this._scene.add(this._coronaMesh);
+
+    // Moon disc
+    const moonGeo = new T.SphereGeometry(1.0, 12, 8);
+    this._moonMat = new T.MeshBasicMaterial({ color: 0xddeeff, fog: false });
+    this._moonMesh = new T.Mesh(moonGeo, this._moonMat);
+    this._moonMesh.visible = false;
+    this._scene.add(this._moonMesh);
+
+    // Stars (upper hemisphere random points)
+    const starCount = 280;
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI * 0.48; // upper cap
+      starPos[i * 3]     = 72 * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = 72 * Math.cos(phi);
+      starPos[i * 3 + 2] = 72 * Math.sin(phi) * Math.sin(theta);
+    }
+    const starGeo = new T.BufferGeometry();
+    starGeo.setAttribute('position', new T.BufferAttribute(starPos, 3));
+    this._starsMesh = new T.Points(starGeo, new T.PointsMaterial({ color: 0xffffff, size: 0.35, sizeAttenuation: true, fog: false }));
+    this._starsMesh.visible = false;
+    this._scene.add(this._starsMesh);
+
+    // Clouds (groups of puff spheres at fixed sky positions)
+    this._cloudMeshes = [];
+    const cloudCfgs = [
+      { x: -22, y: 16, z: -28, count: 6 },
+      { x:  28, y: 20, z: -26, count: 5 },
+      { x: -8,  y: 18, z: -38, count: 7 },
+      { x:  18, y: 14, z: -32, count: 5 },
+      { x: -32, y: 17, z: -18, count: 4 },
+    ];
+    cloudCfgs.forEach(cfg => {
+      const group = new T.Group();
+      const mat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 1, fog: false });
+      for (let i = 0; i < cfg.count; i++) {
+        const r = 1.4 + Math.random() * 1.8;
+        const puff = new T.Mesh(new T.SphereGeometry(r, 8, 6), mat);
+        puff.position.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 3.5);
+        group.add(puff);
+      }
+      group.position.set(cfg.x, cfg.y, cfg.z);
+      group.visible = false;
+      this._scene.add(group);
+      this._cloudMeshes.push(group);
+    });
+  }
+  _updateSkyDome(isNight, skyCol, elevation, isCloud, isFog, isRain) {
+    if (!this._skyDomeMesh) return;
+    const T = window.THREE;
+    const positions = this._skyDomeMesh.geometry.attributes.position;
+    const colors   = this._skyDomeMesh.geometry.attributes.color;
+
+    // Zenith color = skyCol; horizon is lighter/different
+    const zenith  = new T.Color(skyCol);
+    let hc;
+    if (isNight) {
+      hc = new T.Color(0x080812);
+    } else if (isRain) {
+      hc = new T.Color(0x7a8490);
+    } else if (isFog) {
+      hc = new T.Color(0xbbbbbb);
+    } else {
+      // daytime: horizon slightly lighter/warmer than zenith
+      hc = new T.Color(skyCol).lerp(new T.Color(0xe8f4ff), 0.45);
+    }
+
+    for (let i = 0; i < positions.count; i++) {
+      const y = positions.getY(i); // -80 to +80
+      const t = Math.max(0, Math.min(1, (y + 10) / 90));
+      const c = new T.Color().lerpColors(hc, zenith, t * t);
+      colors.setXYZ(i, c.r, c.g, c.b);
+    }
+    colors.needsUpdate = true;
+
+    // Sun position: elevation angle from south horizon
+    const elev = (elevation ?? 45) * Math.PI / 180;
+    const SR = 68;
+    const sx = SR * Math.cos(elev) * 0.6;
+    const sy = SR * Math.sin(elev);
+    const sz = -SR * Math.cos(elev) * 0.8;
+    const sunVisible = !isNight && (elevation ?? 45) > -3;
+    this._sunMesh.position.set(sx, sy, sz);
+    this._sunMesh.visible = sunVisible;
+    this._coronaMesh.position.set(sx, sy, sz);
+    this._coronaMesh.visible = sunVisible;
+    // Tint sun at dawn/dusk
+    if (elevation < 15 && !isNight) {
+      this._sunMat.color.setHex(0xff9933);
+      this._coronaMat.color.setHex(0xff6600);
+      this._coronaMat.opacity = 0.3;
+    } else {
+      this._sunMat.color.setHex(0xfffaaa);
+      this._coronaMat.color.setHex(0xffe060);
+      this._coronaMat.opacity = 0.2;
+    }
+
+    // Moon (roughly opposite the sun in sky)
+    this._moonMesh.position.set(-SR * 0.55, SR * 0.55, -SR * 0.6);
+    this._moonMesh.visible = isNight;
+
+    // Stars
+    this._starsMesh.visible = isNight;
+
+    // Clouds
+    const showClouds = !isNight && !isFog && !isRain;
+    const cloudCol = isCloud ? 0xaab0bb : 0xffffff;
+    this._cloudMeshes.forEach(g => {
+      g.visible = showClouds;
+      g.children.forEach(p => p.material.color.setHex(cloudCol));
+    });
+  }
   _buildOutdoor(mnX, mxX, mnZ, mxZ) {
     const T = window.THREE;
     const cx = (mnX + mxX) / 2;
@@ -759,55 +907,159 @@ export class FloorPlan3DCard extends HTMLElement {
     // --- KITCHEN GARDEN (south-west of building) ---
     const gardenCX = mnX + bldW * 0.25;
     const gardenCZ = mxZ + 4.5;
-    const gardenW = 5;
-    const gardenD = 3.5;
+    const gardenW = 5.5;
+    const gardenD = 4.0;
+    const soilY = 0.22; // top of soil surface
 
-    // Raised bed frame (dark wood border)
+    // Raised bed frame – thick plank boards on each side
     const bedBorderMat = new T.MeshStandardMaterial({ color: 0x4a2e14, roughness: 0.95 });
-    [[gardenCX, gardenCZ - gardenD / 2, gardenW + 0.2, 0.15], // front
-     [gardenCX, gardenCZ + gardenD / 2, gardenW + 0.2, 0.15], // back
-     [gardenCX - gardenW / 2, gardenCZ, 0.15, gardenD],        // left
-     [gardenCX + gardenW / 2, gardenCZ, 0.15, gardenD],        // right
+    [[gardenCX, gardenCZ - gardenD / 2, gardenW + 0.3, 0.18],
+     [gardenCX, gardenCZ + gardenD / 2, gardenW + 0.3, 0.18],
+     [gardenCX - gardenW / 2, gardenCZ, 0.18, gardenD],
+     [gardenCX + gardenW / 2, gardenCZ, 0.18, gardenD],
     ].forEach(([bx, bz, bw, bd]) => {
-      const border = new T.Mesh(new T.BoxGeometry(bw, 0.25, bd), bedBorderMat);
-      border.position.set(bx, 0.125, bz);
+      const border = new T.Mesh(new T.BoxGeometry(bw, 0.3, bd), bedBorderMat);
+      border.position.set(bx, 0.15, bz);
       border.castShadow = true;
       border.receiveShadow = true;
       this._scene.add(border);
     });
 
-    // Soil fill
+    // Soil fill (slightly raised, darker)
     const soilMesh = new T.Mesh(
-      new T.BoxGeometry(gardenW - 0.05, 0.08, gardenD - 0.05),
-      new T.MeshStandardMaterial({ color: 0x2c1a0e, roughness: 1 })
+      new T.BoxGeometry(gardenW - 0.06, 0.12, gardenD - 0.06),
+      new T.MeshStandardMaterial({ color: 0x261508, roughness: 1 })
     );
-    soilMesh.position.set(gardenCX, 0.16, gardenCZ);
+    soilMesh.position.set(gardenCX, soilY - 0.06, gardenCZ);
     soilMesh.receiveShadow = true;
     this._scene.add(soilMesh);
 
-    // Vegetable plants in rows
-    const stemMat = new T.MeshStandardMaterial({ color: 0x2e6b20, roughness: 0.9 });
-    const leafMat = new T.MeshStandardMaterial({ color: 0x3cb052, roughness: 0.85 });
-    const flowerMat = new T.MeshStandardMaterial({ color: 0xd4c835, roughness: 0.8 });
-    const rows = 3, cols = 5;
+    // Soil surface variation patches (lighter/darker spots)
+    [0x2c1a0e, 0x1e1006, 0x331e10].forEach((col, si) => {
+      const patch = new T.Mesh(
+        new T.PlaneGeometry(0.9 + si * 0.4, 0.7 + si * 0.3),
+        new T.MeshStandardMaterial({ color: col, roughness: 1 })
+      );
+      patch.rotation.x = -Math.PI / 2;
+      patch.position.set(gardenCX + (si - 1) * 1.2, soilY + 0.001, gardenCZ + (si % 2 ? 0.4 : -0.4));
+      this._scene.add(patch);
+    });
+
+    // Drip irrigation line (thin dark tube across each plant row)
+    const pipeMat = new T.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
+    const rows = 4, cols = 5;
     for (let r = 0; r < rows; r++) {
+      const pz = gardenCZ - (gardenD / 2) + 0.55 + r * ((gardenD - 0.9) / (rows - 1));
+      const pipe = new T.Mesh(new T.CylinderGeometry(0.018, 0.018, gardenW - 0.3, 6), pipeMat);
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(gardenCX, soilY + 0.03, pz);
+      this._scene.add(pipe);
+    }
+
+    // Plant varieties per row
+    const plantDefs = [
+      // row 0: tomatoes – tall, red fruits
+      { stemH: 0.55, stemR: 0.035, leafCol: 0x2a7a1a, leafR: 0.12, fruitCol: 0xcc2200, fruitR: 0.07, fruitCount: 3 },
+      // row 1: basil – bushy, multi-sphere top
+      { stemH: 0.22, stemR: 0.028, leafCol: 0x3ec844, leafR: 0.17, fruitCol: null },
+      // row 2: peppers – medium, elongated orange fruit
+      { stemH: 0.38, stemR: 0.03, leafCol: 0x30801a, leafR: 0.11, fruitCol: 0xdd6600, fruitR: 0.055, fruitCount: 2 },
+      // row 3: lettuce – very low, wide flat rosette
+      { stemH: 0.05, stemR: 0.06, leafCol: 0x55cc44, leafR: 0.22, flat: true, fruitCol: null },
+    ];
+
+    const stemMat = new T.MeshStandardMaterial({ color: 0x2e6b20, roughness: 0.9 });
+    for (let r = 0; r < rows; r++) {
+      const def = plantDefs[r % plantDefs.length];
       for (let c = 0; c < cols; c++) {
-        const px = gardenCX - (gardenW / 2) + 0.6 + c * ((gardenW - 1.0) / (cols - 1));
-        const pz = gardenCZ - (gardenD / 2) + 0.5 + r * ((gardenD - 0.9) / (rows - 1));
-        const h = 0.28 + (((c + r * 3) % 5) * 0.06);
-        const stem = new T.Mesh(new T.CylinderGeometry(0.03, 0.04, h, 6), stemMat);
-        stem.position.set(px, 0.22 + h / 2, pz);
+        const px = gardenCX - (gardenW / 2) + 0.6 + c * ((gardenW - 1.1) / (cols - 1));
+        const pz = gardenCZ - (gardenD / 2) + 0.55 + r * ((gardenD - 0.9) / (rows - 1));
+        const jitter = ((c * 7 + r * 3) % 5) * 0.04;
+        const stemH = def.stemH + jitter;
+        const baseY = soilY;
+
+        // Stem
+        const stem = new T.Mesh(new T.CylinderGeometry(def.stemR * 0.7, def.stemR, stemH, 6), stemMat);
+        stem.position.set(px, baseY + stemH / 2, pz);
         stem.castShadow = true;
         this._scene.add(stem);
-        const leafRadius = 0.14 + (r % 2) * 0.04;
-        const top = new T.Mesh(new T.SphereGeometry(leafRadius, 7, 5), (c % 3 === 0) ? flowerMat : leafMat);
-        top.position.set(px, 0.22 + h + leafRadius * 0.7, pz);
-        top.castShadow = true;
-        this._scene.add(top);
+
+        const leafMat = new T.MeshStandardMaterial({ color: def.leafCol, roughness: 0.8 });
+        if (def.flat) {
+          // Flat rosette (oblate sphere)
+          const leaf = new T.Mesh(new T.SphereGeometry(def.leafR, 8, 5), leafMat);
+          leaf.scale.y = 0.3;
+          leaf.position.set(px, baseY + stemH + 0.04, pz);
+          leaf.castShadow = true;
+          this._scene.add(leaf);
+        } else if (def.fruitCol === null) {
+          // Bushy (3 overlapping puffs)
+          for (let b = 0; b < 3; b++) {
+            const bx = px + (b - 1) * def.leafR * 0.7;
+            const by = baseY + stemH + def.leafR * (0.5 + (b % 2) * 0.3);
+            const puff = new T.Mesh(new T.SphereGeometry(def.leafR * (0.75 + b * 0.1), 7, 5), leafMat);
+            puff.position.set(bx, by, pz);
+            puff.castShadow = true;
+            this._scene.add(puff);
+          }
+        } else {
+          // Leaf crown
+          const leaf = new T.Mesh(new T.SphereGeometry(def.leafR, 7, 5), leafMat);
+          leaf.position.set(px, baseY + stemH + def.leafR * 0.65, pz);
+          leaf.castShadow = true;
+          this._scene.add(leaf);
+          // Fruits (small spheres clustered around upper stem)
+          const fruitMat = new T.MeshStandardMaterial({ color: def.fruitCol, roughness: 0.5, metalness: 0.05 });
+          const fc = def.fruitCount || 2;
+          for (let fi = 0; fi < fc; fi++) {
+            const fa = (fi / fc) * Math.PI * 2;
+            const fx = px + Math.cos(fa) * def.leafR * 0.7;
+            const fz = pz + Math.sin(fa) * def.leafR * 0.7;
+            const fruit = new T.Mesh(new T.SphereGeometry(def.fruitR, 8, 6), fruitMat);
+            fruit.position.set(fx, baseY + stemH * 0.75, fz);
+            fruit.castShadow = true;
+            this._scene.add(fruit);
+          }
+        }
       }
     }
 
-    // Garden label sign (thin post + board)
+    // Stone path border alongside the front of the garden
+    const stoneMat = new T.MeshStandardMaterial({ color: 0x888878, roughness: 0.95 });
+    for (let si = 0; si < 8; si++) {
+      const sx = gardenCX - gardenW / 2 + 0.35 + si * (gardenW / 7);
+      const stone = new T.Mesh(new T.CylinderGeometry(0.12 + (si % 3) * 0.03, 0.14, 0.06 + (si % 2) * 0.02, 7), stoneMat);
+      stone.position.set(sx, 0.03, gardenCZ - gardenD / 2 - 0.35);
+      stone.rotation.y = si * 0.7;
+      stone.receiveShadow = true;
+      this._scene.add(stone);
+    }
+
+    // Watering can (cylinder body + spout + handle)
+    const canMat = new T.MeshStandardMaterial({ color: 0x228844, roughness: 0.6, metalness: 0.2 });
+    const canBody = new T.Mesh(new T.CylinderGeometry(0.14, 0.12, 0.32, 10), canMat);
+    const canX = gardenCX - gardenW / 2 - 0.5;
+    const canZ = gardenCZ + gardenD / 2 - 0.4;
+    canBody.position.set(canX, 0.16, canZ);
+    canBody.castShadow = true;
+    this._scene.add(canBody);
+    // Spout
+    const spout = new T.Mesh(new T.CylinderGeometry(0.025, 0.04, 0.28, 6), canMat);
+    spout.rotation.z = -Math.PI / 5;
+    spout.position.set(canX + 0.18, 0.27, canZ);
+    this._scene.add(spout);
+    // Handle arc (two short cylinders)
+    const handleMat = new T.MeshStandardMaterial({ color: 0x1a6633, roughness: 0.7 });
+    const hA = new T.Mesh(new T.CylinderGeometry(0.015, 0.015, 0.22, 6), handleMat);
+    hA.rotation.z = Math.PI / 5;
+    hA.position.set(canX - 0.14, 0.26, canZ);
+    this._scene.add(hA);
+    const hB = new T.Mesh(new T.CylinderGeometry(0.015, 0.015, 0.22, 6), handleMat);
+    hB.rotation.z = -Math.PI / 5;
+    hB.position.set(canX - 0.14, 0.28, canZ);
+    this._scene.add(hB);
+
+    // Garden label sign
     const signPostMat = new T.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.9 });
     const signPost = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, 0.8, 6), signPostMat);
     signPost.position.set(gardenCX + gardenW / 2 - 0.3, 0.4, gardenCZ - gardenD / 2 - 0.1);
@@ -885,79 +1137,95 @@ export class FloorPlan3DCard extends HTMLElement {
     lintel.position.set(garageX + garageW / 2, garageH - 0.08, garageZ + garageD / 2);
     this._scene.add(lintel);
 
-    // --- TWO CARS ---
-    const carConfigs = [
-      { color: 0x1e4fa0, x: garageX + 1.6, z: garageZ, ry: 0 },
-      { color: 0xa02020, x: garageX + 4.8, z: garageZ, ry: 0 },
+    // --- CARS (default 2 box-cars; override via config `cars` array) ---
+    const defaultCars = [
+      { color: '#1e4fa0', x: garageX + 1.6, z: garageZ },
+      { color: '#a02020', x: garageX + 4.8, z: garageZ },
     ];
-    const carBodyGeo = new T.BoxGeometry(3.7, 0.6, 1.55);
-    const carCabinGeo = new T.BoxGeometry(2.1, 0.52, 1.42);
+    const carList = (this._cars && this._cars.length > 0) ? this._cars : defaultCars;
+
     const wheelGeo = new T.CylinderGeometry(0.27, 0.27, 0.2, 12);
     const wheelMat = new T.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
-    const rimMat = new T.MeshStandardMaterial({ color: 0xb0b0b8, metalness: 0.6, roughness: 0.4 });
+    const rimMat   = new T.MeshStandardMaterial({ color: 0xb0b0b8, metalness: 0.6, roughness: 0.4 });
 
-    carConfigs.forEach(({ color, x, z }) => {
-      const carMat = new T.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.45 });
+    const buildBoxCar = (carCfg) => {
+      const x = carCfg.x ?? (garageX + 1.6);
+      const z = carCfg.z ?? garageZ;
+      const col = new T.Color(carCfg.color ?? '#1e4fa0').getHex();
+      const carMat = new T.MeshStandardMaterial({ color: col, roughness: 0.35, metalness: 0.45 });
+      const group = new T.Group();
 
-      // Body
-      const body = new T.Mesh(carBodyGeo, carMat);
-      body.position.set(x, 0.32, z);
-      body.castShadow = true;
-      body.receiveShadow = true;
-      this._scene.add(body);
+      const body  = new T.Mesh(new T.BoxGeometry(3.7, 0.6, 1.55), carMat);
+      body.position.set(0, 0.32, 0);
+      body.castShadow = true; body.receiveShadow = true;
+      group.add(body);
 
-      // Cabin (slightly narrower/shorter box on top)
-      const cabin = new T.Mesh(carCabinGeo, carMat);
-      cabin.position.set(x - 0.2, 0.86, z);
+      const cabin = new T.Mesh(new T.BoxGeometry(2.1, 0.52, 1.42), carMat);
+      cabin.position.set(-0.2, 0.86, 0);
       cabin.castShadow = true;
-      this._scene.add(cabin);
+      group.add(cabin);
 
-      // Windshield tint (dark transparent box)
-      const windshield = new T.Mesh(
-        new T.BoxGeometry(0.05, 0.44, 1.3),
-        new T.MeshStandardMaterial({ color: 0x4488aa, transparent: true, opacity: 0.35, metalness: 0.1 })
-      );
-      windshield.position.set(x + 0.85, 0.84, z);
-      this._scene.add(windshield);
+      const glassMat = new T.MeshStandardMaterial({ color: 0x4488aa, transparent: true, opacity: 0.35, metalness: 0.1 });
+      const ws = new T.Mesh(new T.BoxGeometry(0.05, 0.44, 1.3), glassMat);
+      ws.position.set(0.85, 0.84, 0);
+      group.add(ws);
 
-      // Rear window
-      const rearWindow = new T.Mesh(
-        new T.BoxGeometry(0.05, 0.4, 1.3),
-        new T.MeshStandardMaterial({ color: 0x4488aa, transparent: true, opacity: 0.35, metalness: 0.1 })
-      );
-      rearWindow.position.set(x - 1.25, 0.84, z);
-      this._scene.add(rearWindow);
+      const rw = new T.Mesh(new T.BoxGeometry(0.05, 0.4, 1.3), glassMat);
+      rw.position.set(-1.25, 0.84, 0);
+      group.add(rw);
 
-      // 4 Wheels
       [[-1.45, -0.72], [-1.45, 0.72], [1.45, -0.72], [1.45, 0.72]].forEach(([dx, dz]) => {
         const wheel = new T.Mesh(wheelGeo, wheelMat);
         wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(x + dx, 0.27, z + dz);
+        wheel.position.set(dx, 0.27, dz);
         wheel.castShadow = true;
-        this._scene.add(wheel);
-
-        // Rim (thin cylinder slightly inset)
+        group.add(wheel);
         const rim = new T.Mesh(new T.CylinderGeometry(0.15, 0.15, 0.22, 10), rimMat);
         rim.rotation.z = Math.PI / 2;
-        rim.position.set(x + dx, 0.27, z + dz);
-        this._scene.add(rim);
+        rim.position.set(dx, 0.27, dz);
+        group.add(rim);
       });
 
-      // Headlights
-      const headlightMat = new T.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.3 });
+      const hlMat = new T.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 0.3 });
+      const tlMat = new T.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 0.25 });
       [[-0.5], [0.5]].forEach(([dz]) => {
-        const hl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), headlightMat);
-        hl.position.set(x + 1.86, 0.38, z + dz);
-        this._scene.add(hl);
+        const hl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), hlMat);
+        hl.position.set(1.86, 0.38, dz);
+        group.add(hl);
+        const tl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), tlMat);
+        tl.position.set(-1.86, 0.38, dz);
+        group.add(tl);
       });
 
-      // Tail lights
-      const taillightMat = new T.MeshStandardMaterial({ color: 0xff2200, emissive: 0xff2200, emissiveIntensity: 0.25 });
-      [[-0.5], [0.5]].forEach(([dz]) => {
-        const tl = new T.Mesh(new T.BoxGeometry(0.08, 0.1, 0.2), taillightMat);
-        tl.position.set(x - 1.86, 0.38, z + dz);
-        this._scene.add(tl);
-      });
+      group.position.set(x, 0, z);
+      if (carCfg.rotation) group.rotation.y = (carCfg.rotation * Math.PI) / 180;
+      this._scene.add(group);
+    };
+
+    carList.forEach(carCfg => {
+      const x = carCfg.x ?? (garageX + 1.6);
+      const z = carCfg.z ?? garageZ;
+      if (carCfg.url && typeof window.THREE.GLTFLoader !== 'undefined') {
+        const loader = new window.THREE.GLTFLoader();
+        loader.load(carCfg.url, (gltf) => {
+          const model = gltf.scene;
+          const box = new T.Box3().setFromObject(model);
+          const size = new T.Vector3(); box.getSize(size);
+          const scale = Math.min(3.7 / size.x, 1.5 / size.y, 1.8 / size.z);
+          model.scale.setScalar(scale);
+          const center = new T.Vector3(); box.getCenter(center);
+          model.position.sub(center.multiplyScalar(scale));
+          model.position.y += (size.y * scale) / 2;
+          const group = new T.Group();
+          group.add(model);
+          group.position.set(x, 0, z);
+          if (carCfg.rotation) group.rotation.y = (carCfg.rotation * Math.PI) / 180;
+          model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+          this._scene.add(group);
+        }, undefined, () => buildBoxCar(carCfg));
+      } else {
+        buildBoxCar(carCfg);
+      }
     });
 
     // --- SOME TREES for atmosphere ---
@@ -1816,11 +2084,12 @@ export class FloorPlan3DCard extends HTMLElement {
     let ambCol = 0x303050;
     let dirInt = 0;
 
+    let isRain = false, isCloud = false, isFog = false;
     if (!isNight) {
       const isStorm = wState.includes("lightning");
-      const isRain  = wState.includes("rain") || wState.includes("pour") || wState.includes("storm") || isStorm;
-      const isCloud = wState.includes("cloud") || wState.includes("partly");
-      const isFog   = wState.includes("fog");
+      isRain  = wState.includes("rain") || wState.includes("pour") || wState.includes("storm") || isStorm;
+      isCloud = wState.includes("cloud") || wState.includes("partly");
+      isFog   = wState.includes("fog");
       const isSnow  = wState.includes("snow") || wState.includes("sleet") || wState.includes("hail");
       const isWind  = wState.includes("wind");
 
@@ -1855,14 +2124,16 @@ export class FloorPlan3DCard extends HTMLElement {
     } else {
       if (wState.includes("rain") || wState.includes("storm") || wState.includes("lightning") || wState.includes("fog")) {
         skyCol = 0x050508; fogDensity = 0.04;
+        isRain = true;
       }
     }
 
-    if (this._renderer) this._renderer.setClearColor(skyCol);
+    if (this._renderer) this._renderer.setClearColor(isNight ? 0x000005 : skyCol, 0); // transparent bg; sky dome handles color
     if (this._scene.fog) { this._scene.fog.color.setHex(skyCol); this._scene.fog.density = fogDensity; }
     if (this._ambientLight) this._ambientLight.color.setHex(ambCol);
     if (this._hemiLight) { this._hemiLight.color.setHex(hemiSky); this._hemiLight.groundColor.setHex(hemiGnd); }
     if (this._dirLight) this._dirLight.intensity = dirInt;
+    this._updateSkyDome(isNight, skyCol, elevation, isCloud, isFog, isRain);
   }
 
   _onHassUpdate(prev) {

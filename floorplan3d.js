@@ -563,7 +563,7 @@ var _, v = e((() => {
 				].forEach((e) => {
 					t.entities[e] || (t.entities[e] = []);
 				});
-			}), this._rooms.sort((e, t) => (e.z_order || 0) - (t.z_order || 0)), this._cwalls = JSON.parse(JSON.stringify(e.custom_walls || d)), this._furniture = JSON.parse(JSON.stringify(e.furniture || f)), this._statSensors = e.stats || p, this._cardHeight = e.height || 450, this._wallHeight = e.wall_height || 2.4, this._roomIdCounter = this._rooms.reduce((e, t) => {
+			}), this._rooms.sort((e, t) => (e.z_order || 0) - (t.z_order || 0)), this._cwalls = JSON.parse(JSON.stringify(e.custom_walls || d)), this._furniture = JSON.parse(JSON.stringify(e.furniture || f)), this._cars = JSON.parse(JSON.stringify(e.cars || [])), this._statSensors = e.stats || p, this._cardHeight = e.height || 450, this._wallHeight = e.wall_height || 2.4, this._roomIdCounter = this._rooms.reduce((e, t) => {
 				let n = parseInt((t.id.match(/\d+$/) || ["0"])[0]);
 				return Math.max(e, n);
 			}, 0) + 1, this._entityRoomMap = {}, this._rooms.forEach((e) => {
@@ -628,7 +628,7 @@ var _, v = e((() => {
 			for (this._animId && cancelAnimationFrame(this._animId), this._scene.traverse((e) => {
 				e.geometry && !e.geometry._shared && e.geometry.dispose(), e.material && (Array.isArray(e.material) ? e.material.forEach((e) => e.dispose()) : e.material.dispose());
 			}); this._scene.children.length > 0;) this._scene.remove(this._scene.children[0]);
-			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._animate();
+			this._roomMeshes = [], this._roomFloorMats = {}, this._roomGlowMeshes = {}, this._roomPointLights = {}, this._furnMeshes = [], this._cwMeshes = [], this._lightFixtures = {}, this._skyDomeMesh = null, this._sunMesh = null, this._moonMesh = null, this._starsMesh = null, this._cloudMeshes = [], this._wallGroup = new THREE.Group(), this._scene.add(this._wallGroup), this._buildSceneContent(), this._updateAllVisuals(), this._updateStats(), this._animate();
 		}
 		_initScene() {
 			let e = this.shadowRoot.getElementById("wrap"), t = this.shadowRoot.getElementById("c"), n = e.clientWidth, r = this._cardHeight;
@@ -732,7 +732,7 @@ var _, v = e((() => {
 				color: 1387024,
 				roughness: .95
 			}));
-			r.rotation.x = -Math.PI / 2, r.position.y = -.02, r.receiveShadow = !0, this._scene.add(r);
+			r.rotation.x = -Math.PI / 2, r.position.y = -.02, r.receiveShadow = !0, this._scene.add(r), this._buildSkyDome();
 			let a = Infinity, o = -Infinity, s = Infinity, c = -Infinity;
 			this._rooms.forEach((e) => {
 				let t = e.position;
@@ -915,6 +915,103 @@ var _, v = e((() => {
 				}, void 0, () => l()) : l();
 			}), this._buildOutdoor(a, o, s, c);
 		}
+		_buildSkyDome() {
+			let e = window.THREE, t = new e.SphereGeometry(80, 32, 16), n = t.attributes.position.count, r = new Float32Array(n * 3);
+			t.setAttribute("color", new e.BufferAttribute(r, 3)), this._skyDomeMat = new e.MeshBasicMaterial({
+				vertexColors: !0,
+				side: e.BackSide,
+				depthWrite: !1,
+				fog: !1
+			}), this._skyDomeMesh = new e.Mesh(t, this._skyDomeMat), this._skyDomeMesh.renderOrder = -100, this._scene.add(this._skyDomeMesh);
+			let i = new e.SphereGeometry(1.5, 14, 10);
+			this._sunMat = new e.MeshBasicMaterial({
+				color: 16775850,
+				fog: !1
+			}), this._sunMesh = new e.Mesh(i, this._sunMat), this._sunMesh.visible = !1, this._scene.add(this._sunMesh);
+			let a = new e.SphereGeometry(2.5, 12, 8);
+			this._coronaMat = new e.MeshBasicMaterial({
+				color: 16769120,
+				transparent: !0,
+				opacity: .2,
+				fog: !1,
+				depthWrite: !1
+			}), this._coronaMesh = new e.Mesh(a, this._coronaMat), this._coronaMesh.visible = !1, this._scene.add(this._coronaMesh);
+			let o = new e.SphereGeometry(1, 12, 8);
+			this._moonMat = new e.MeshBasicMaterial({
+				color: 14544639,
+				fog: !1
+			}), this._moonMesh = new e.Mesh(o, this._moonMat), this._moonMesh.visible = !1, this._scene.add(this._moonMesh);
+			let s = new Float32Array(280 * 3);
+			for (let e = 0; e < 280; e++) {
+				let t = Math.random() * Math.PI * 2, n = Math.random() * Math.PI * .48;
+				s[e * 3] = 72 * Math.sin(n) * Math.cos(t), s[e * 3 + 1] = 72 * Math.cos(n), s[e * 3 + 2] = 72 * Math.sin(n) * Math.sin(t);
+			}
+			let c = new e.BufferGeometry();
+			c.setAttribute("position", new e.BufferAttribute(s, 3)), this._starsMesh = new e.Points(c, new e.PointsMaterial({
+				color: 16777215,
+				size: .35,
+				sizeAttenuation: !0,
+				fog: !1
+			})), this._starsMesh.visible = !1, this._scene.add(this._starsMesh), this._cloudMeshes = [], [
+				{
+					x: -22,
+					y: 16,
+					z: -28,
+					count: 6
+				},
+				{
+					x: 28,
+					y: 20,
+					z: -26,
+					count: 5
+				},
+				{
+					x: -8,
+					y: 18,
+					z: -38,
+					count: 7
+				},
+				{
+					x: 18,
+					y: 14,
+					z: -32,
+					count: 5
+				},
+				{
+					x: -32,
+					y: 17,
+					z: -18,
+					count: 4
+				}
+			].forEach((t) => {
+				let n = new e.Group(), r = new e.MeshStandardMaterial({
+					color: 16777215,
+					roughness: 1,
+					fog: !1
+				});
+				for (let i = 0; i < t.count; i++) {
+					let t = 1.4 + Math.random() * 1.8, i = new e.Mesh(new e.SphereGeometry(t, 8, 6), r);
+					i.position.set((Math.random() - .5) * 6, (Math.random() - .5) * 1.6, (Math.random() - .5) * 3.5), n.add(i);
+				}
+				n.position.set(t.x, t.y, t.z), n.visible = !1, this._scene.add(n), this._cloudMeshes.push(n);
+			});
+		}
+		_updateSkyDome(e, t, n, r, i, a) {
+			if (!this._skyDomeMesh) return;
+			let o = window.THREE, s = this._skyDomeMesh.geometry.attributes.position, c = this._skyDomeMesh.geometry.attributes.color, l = new o.Color(t), u;
+			u = e ? new o.Color(526354) : a ? new o.Color(8029328) : i ? new o.Color(12303291) : new o.Color(t).lerp(new o.Color(15267071), .45);
+			for (let e = 0; e < s.count; e++) {
+				let t = s.getY(e), n = Math.max(0, Math.min(1, (t + 10) / 90)), r = new o.Color().lerpColors(u, l, n * n);
+				c.setXYZ(e, r.r, r.g, r.b);
+			}
+			c.needsUpdate = !0;
+			let d = (n ?? 45) * Math.PI / 180, f = 68 * Math.cos(d) * .6, p = 68 * Math.sin(d), m = -68 * Math.cos(d) * .8, h = !e && (n ?? 45) > -3;
+			this._sunMesh.position.set(f, p, m), this._sunMesh.visible = h, this._coronaMesh.position.set(f, p, m), this._coronaMesh.visible = h, n < 15 && !e ? (this._sunMat.color.setHex(16750899), this._coronaMat.color.setHex(16737792), this._coronaMat.opacity = .3) : (this._sunMat.color.setHex(16775850), this._coronaMat.color.setHex(16769120), this._coronaMat.opacity = .2), this._moonMesh.position.set(-68 * .55, 68 * .55, -68 * .6), this._moonMesh.visible = e, this._starsMesh.visible = e;
+			let g = !e && !i && !a, _ = r ? 11186363 : 16777215;
+			this._cloudMeshes.forEach((e) => {
+				e.visible = g, e.children.forEach((e) => e.material.color.setHex(_));
+			});
+		}
 		_buildOutdoor(e, t, n, r) {
 			let i = window.THREE, a = (e + t) / 2, o = (n + r) / 2, s = t - e, c = r - n, l = [
 				{
@@ -954,180 +1051,278 @@ var _, v = e((() => {
 				}));
 				n.rotation.x = -Math.PI / 2, n.position.set(e.x, -.01, e.z), n.receiveShadow = !0, this._scene.add(n);
 			});
-			let d = e + s * .25, f = r + 4.5, p = 3.5, m = new i.MeshStandardMaterial({
+			let d = e + s * .25, f = r + 4.5, p = 5.5, m = .22, h = new i.MeshStandardMaterial({
 				color: 4861460,
 				roughness: .95
 			});
 			[
 				[
 					d,
-					f - p / 2,
-					5.2,
-					.15
+					f - 4 / 2,
+					p + .3,
+					.18
 				],
 				[
 					d,
-					f + p / 2,
-					5.2,
-					.15
+					f + 4 / 2,
+					p + .3,
+					.18
 				],
 				[
-					d - 5 / 2,
+					d - p / 2,
 					f,
-					.15,
-					p
+					.18,
+					4
 				],
 				[
-					d + 5 / 2,
+					d + p / 2,
 					f,
-					.15,
-					p
+					.18,
+					4
 				]
 			].forEach(([e, t, n, r]) => {
-				let a = new i.Mesh(new i.BoxGeometry(n, .25, r), m);
-				a.position.set(e, .125, t), a.castShadow = !0, a.receiveShadow = !0, this._scene.add(a);
+				let a = new i.Mesh(new i.BoxGeometry(n, .3, r), h);
+				a.position.set(e, .15, t), a.castShadow = !0, a.receiveShadow = !0, this._scene.add(a);
 			});
-			let h = new i.Mesh(new i.BoxGeometry(4.95, .08, p - .05), new i.MeshStandardMaterial({
-				color: 2890254,
+			let g = new i.Mesh(new i.BoxGeometry(p - .06, .12, 3.94), new i.MeshStandardMaterial({
+				color: 2495752,
 				roughness: 1
 			}));
-			h.position.set(d, .16, f), h.receiveShadow = !0, this._scene.add(h);
-			let g = new i.MeshStandardMaterial({
-				color: 3042080,
-				roughness: .9
-			}), _ = new i.MeshStandardMaterial({
-				color: 3977298,
-				roughness: .85
-			}), v = new i.MeshStandardMaterial({
-				color: 13944885,
+			g.position.set(d, m - .06, f), g.receiveShadow = !0, this._scene.add(g), [
+				2890254,
+				1970182,
+				3350032
+			].forEach((e, t) => {
+				let n = new i.Mesh(new i.PlaneGeometry(.9 + t * .4, .7 + t * .3), new i.MeshStandardMaterial({
+					color: e,
+					roughness: 1
+				}));
+				n.rotation.x = -Math.PI / 2, n.position.set(d + (t - 1) * 1.2, m + .001, f + (t % 2 ? .4 : -.4)), this._scene.add(n);
+			});
+			let _ = new i.MeshStandardMaterial({
+				color: 1710618,
 				roughness: .8
 			});
-			for (let e = 0; e < 3; e++) for (let t = 0; t < 5; t++) {
-				let n = d - 5 / 2 + .6 + 4 / 4 * t, r = f - p / 2 + .5 + e * ((p - .9) / 2), a = .28 + (t + e * 3) % 5 * .06, o = new i.Mesh(new i.CylinderGeometry(.03, .04, a, 6), g);
-				o.position.set(n, .22 + a / 2, r), o.castShadow = !0, this._scene.add(o);
-				let s = .14 + e % 2 * .04, c = new i.Mesh(new i.SphereGeometry(s, 7, 5), t % 3 == 0 ? v : _);
-				c.position.set(n, .22 + a + s * .7, r), c.castShadow = !0, this._scene.add(c);
+			for (let e = 0; e < 4; e++) {
+				let t = f - 4 / 2 + .55 + 3.1 / 3 * e, n = new i.Mesh(new i.CylinderGeometry(.018, .018, p - .3, 6), _);
+				n.rotation.z = Math.PI / 2, n.position.set(d, m + .03, t), this._scene.add(n);
 			}
-			let y = new i.MeshStandardMaterial({
+			let v = [
+				{
+					stemH: .55,
+					stemR: .035,
+					leafCol: 2783770,
+					leafR: .12,
+					fruitCol: 13378048,
+					fruitR: .07,
+					fruitCount: 3
+				},
+				{
+					stemH: .22,
+					stemR: .028,
+					leafCol: 4114500,
+					leafR: .17,
+					fruitCol: null
+				},
+				{
+					stemH: .38,
+					stemR: .03,
+					leafCol: 3178522,
+					leafR: .11,
+					fruitCol: 14509568,
+					fruitR: .055,
+					fruitCount: 2
+				},
+				{
+					stemH: .05,
+					stemR: .06,
+					leafCol: 5622852,
+					leafR: .22,
+					flat: !0,
+					fruitCol: null
+				}
+			], y = new i.MeshStandardMaterial({
+				color: 3042080,
+				roughness: .9
+			});
+			for (let e = 0; e < 4; e++) {
+				let t = v[e % v.length];
+				for (let n = 0; n < 5; n++) {
+					let r = d - p / 2 + .6 + n * ((p - 1.1) / 4), a = f - 4 / 2 + .55 + 3.1 / 3 * e, o = (n * 7 + e * 3) % 5 * .04, s = t.stemH + o, c = m, l = new i.Mesh(new i.CylinderGeometry(t.stemR * .7, t.stemR, s, 6), y);
+					l.position.set(r, c + s / 2, a), l.castShadow = !0, this._scene.add(l);
+					let u = new i.MeshStandardMaterial({
+						color: t.leafCol,
+						roughness: .8
+					});
+					if (t.flat) {
+						let e = new i.Mesh(new i.SphereGeometry(t.leafR, 8, 5), u);
+						e.scale.y = .3, e.position.set(r, c + s + .04, a), e.castShadow = !0, this._scene.add(e);
+					} else if (t.fruitCol === null) for (let e = 0; e < 3; e++) {
+						let n = r + (e - 1) * t.leafR * .7, o = c + s + t.leafR * (.5 + e % 2 * .3), l = new i.Mesh(new i.SphereGeometry(t.leafR * (.75 + e * .1), 7, 5), u);
+						l.position.set(n, o, a), l.castShadow = !0, this._scene.add(l);
+					}
+					else {
+						let e = new i.Mesh(new i.SphereGeometry(t.leafR, 7, 5), u);
+						e.position.set(r, c + s + t.leafR * .65, a), e.castShadow = !0, this._scene.add(e);
+						let n = new i.MeshStandardMaterial({
+							color: t.fruitCol,
+							roughness: .5,
+							metalness: .05
+						}), o = t.fruitCount || 2;
+						for (let e = 0; e < o; e++) {
+							let l = e / o * Math.PI * 2, u = r + Math.cos(l) * t.leafR * .7, d = a + Math.sin(l) * t.leafR * .7, f = new i.Mesh(new i.SphereGeometry(t.fruitR, 8, 6), n);
+							f.position.set(u, c + s * .75, d), f.castShadow = !0, this._scene.add(f);
+						}
+					}
+				}
+			}
+			let b = new i.MeshStandardMaterial({
+				color: 8947832,
+				roughness: .95
+			});
+			for (let e = 0; e < 8; e++) {
+				let t = d - p / 2 + .35 + p / 7 * e, n = new i.Mesh(new i.CylinderGeometry(.12 + e % 3 * .03, .14, .06 + e % 2 * .02, 7), b);
+				n.position.set(t, .03, f - 4 / 2 - .35), n.rotation.y = e * .7, n.receiveShadow = !0, this._scene.add(n);
+			}
+			let x = new i.MeshStandardMaterial({
+				color: 2263108,
+				roughness: .6,
+				metalness: .2
+			}), S = new i.Mesh(new i.CylinderGeometry(.14, .12, .32, 10), x), C = d - p / 2 - .5, w = f + 4 / 2 - .4;
+			S.position.set(C, .16, w), S.castShadow = !0, this._scene.add(S);
+			let T = new i.Mesh(new i.CylinderGeometry(.025, .04, .28, 6), x);
+			T.rotation.z = -Math.PI / 5, T.position.set(C + .18, .27, w), this._scene.add(T);
+			let E = new i.MeshStandardMaterial({
+				color: 1730099,
+				roughness: .7
+			}), D = new i.Mesh(new i.CylinderGeometry(.015, .015, .22, 6), E);
+			D.rotation.z = Math.PI / 5, D.position.set(C - .14, .26, w), this._scene.add(D);
+			let O = new i.Mesh(new i.CylinderGeometry(.015, .015, .22, 6), E);
+			O.rotation.z = -Math.PI / 5, O.position.set(C - .14, .28, w), this._scene.add(O);
+			let k = new i.MeshStandardMaterial({
 				color: 5913114,
 				roughness: .9
-			}), b = new i.Mesh(new i.CylinderGeometry(.03, .03, .8, 6), y);
-			b.position.set(d + 5 / 2 - .3, .4, f - p / 2 - .1), this._scene.add(b);
-			let x = new i.Mesh(new i.BoxGeometry(.5, .22, .04), new i.MeshStandardMaterial({
+			}), A = new i.Mesh(new i.CylinderGeometry(.03, .03, .8, 6), k);
+			A.position.set(d + p / 2 - .3, .4, f - 4 / 2 - .1), this._scene.add(A);
+			let j = new i.Mesh(new i.BoxGeometry(.5, .22, .04), new i.MeshStandardMaterial({
 				color: 8017200,
 				roughness: .9
 			}));
-			x.position.set(d + 5 / 2 - .3, .72, f - p / 2 - .1), this._scene.add(x);
-			let S = t + .8, C = o, w = 6.5, T = 2.7, E = new i.MeshStandardMaterial({
+			j.position.set(d + p / 2 - .3, .72, f - 4 / 2 - .1), this._scene.add(j);
+			let M = t + .8, N = o, P = 6.5, F = 2.7, I = new i.MeshStandardMaterial({
 				color: 3816002,
 				roughness: .9
-			}), D = new i.Mesh(new i.PlaneGeometry(w, 8), E);
-			D.rotation.x = -Math.PI / 2, D.position.set(S + w / 2, 0, C), D.receiveShadow = !0, this._scene.add(D);
-			let O = new i.MeshStandardMaterial({
+			}), L = new i.Mesh(new i.PlaneGeometry(P, 8), I);
+			L.rotation.x = -Math.PI / 2, L.position.set(M + P / 2, 0, N), L.receiveShadow = !0, this._scene.add(L);
+			let R = new i.MeshStandardMaterial({
 				color: 4144978,
 				transparent: !0,
 				opacity: .55,
 				roughness: .85
-			}), k = new i.MeshStandardMaterial({
+			}), z = new i.MeshStandardMaterial({
 				color: 3026494,
 				roughness: .9
-			}), A = new i.MeshStandardMaterial({
+			}), B = new i.MeshStandardMaterial({
 				color: 4539727,
 				roughness: .85
-			}), j = new i.Mesh(new i.PlaneGeometry(w, 6), A);
-			j.rotation.x = -Math.PI / 2, j.position.set(S + w / 2, .003, C), j.receiveShadow = !0, this._scene.add(j);
-			let M = new i.Mesh(new i.BoxGeometry(w, T, .14), O);
-			M.position.set(S + w / 2, T / 2, C - 6 / 2), M.castShadow = !0, M.receiveShadow = !0, this._scene.add(M);
-			let N = new i.Mesh(new i.BoxGeometry(.14, T, 6), O);
-			N.position.set(S, T / 2, C), N.castShadow = !0, N.receiveShadow = !0, this._scene.add(N);
-			let P = new i.Mesh(new i.BoxGeometry(.14, T, 6), O);
-			P.position.set(S + w, T / 2, C), P.castShadow = !0, P.receiveShadow = !0, this._scene.add(P);
-			let F = new i.Mesh(new i.BoxGeometry(w + .28, .16, 6.28), k);
-			F.position.set(S + w / 2, T + .08, C), F.castShadow = !0, F.receiveShadow = !0, this._scene.add(F);
-			let I = new i.MeshStandardMaterial({
+			}), V = new i.Mesh(new i.PlaneGeometry(P, 6), B);
+			V.rotation.x = -Math.PI / 2, V.position.set(M + P / 2, .003, N), V.receiveShadow = !0, this._scene.add(V);
+			let H = new i.Mesh(new i.BoxGeometry(P, F, .14), R);
+			H.position.set(M + P / 2, F / 2, N - 6 / 2), H.castShadow = !0, H.receiveShadow = !0, this._scene.add(H);
+			let U = new i.Mesh(new i.BoxGeometry(.14, F, 6), R);
+			U.position.set(M, F / 2, N), U.castShadow = !0, U.receiveShadow = !0, this._scene.add(U);
+			let W = new i.Mesh(new i.BoxGeometry(.14, F, 6), R);
+			W.position.set(M + P, F / 2, N), W.castShadow = !0, W.receiveShadow = !0, this._scene.add(W);
+			let G = new i.Mesh(new i.BoxGeometry(P + .28, .16, 6.28), z);
+			G.position.set(M + P / 2, F + .08, N), G.castShadow = !0, G.receiveShadow = !0, this._scene.add(G);
+			let K = new i.MeshStandardMaterial({
 				color: 2763324,
 				roughness: .9
 			});
-			[S + .07, S + w - .07].forEach((e) => {
-				let t = new i.Mesh(new i.BoxGeometry(.14, T, .14), I);
-				t.position.set(e, T / 2, C + 6 / 2), this._scene.add(t);
+			[M + .07, M + P - .07].forEach((e) => {
+				let t = new i.Mesh(new i.BoxGeometry(.14, F, .14), K);
+				t.position.set(e, F / 2, N + 6 / 2), this._scene.add(t);
 			});
-			let L = new i.Mesh(new i.BoxGeometry(w, .16, .14), I);
-			L.position.set(S + w / 2, T - .08, C + 6 / 2), this._scene.add(L);
-			let R = [{
-				color: 1986464,
-				x: S + 1.6,
-				z: C,
-				ry: 0
+			let q = new i.Mesh(new i.BoxGeometry(P, .16, .14), K);
+			q.position.set(M + P / 2, F - .08, N + 6 / 2), this._scene.add(q);
+			let J = [{
+				color: "#1e4fa0",
+				x: M + 1.6,
+				z: N
 			}, {
-				color: 10493984,
-				x: S + 4.8,
-				z: C,
-				ry: 0
-			}], z = new i.BoxGeometry(3.7, .6, 1.55), B = new i.BoxGeometry(2.1, .52, 1.42), V = new i.CylinderGeometry(.27, .27, .2, 12), H = new i.MeshStandardMaterial({
+				color: "#a02020",
+				x: M + 4.8,
+				z: N
+			}], Y = this._cars && this._cars.length > 0 ? this._cars : J, X = new i.CylinderGeometry(.27, .27, .2, 12), Z = new i.MeshStandardMaterial({
 				color: 1710618,
 				roughness: .9
-			}), U = new i.MeshStandardMaterial({
+			}), Q = new i.MeshStandardMaterial({
 				color: 11579576,
 				metalness: .6,
 				roughness: .4
-			});
-			R.forEach(({ color: e, x: t, z: n }) => {
-				let r = new i.MeshStandardMaterial({
-					color: e,
+			}), $ = (e) => {
+				let t = e.x ?? M + 1.6, n = e.z ?? N, r = new i.Color(e.color ?? "#1e4fa0").getHex(), a = new i.MeshStandardMaterial({
+					color: r,
 					roughness: .35,
 					metalness: .45
-				}), a = new i.Mesh(z, r);
-				a.position.set(t, .32, n), a.castShadow = !0, a.receiveShadow = !0, this._scene.add(a);
-				let o = new i.Mesh(B, r);
-				o.position.set(t - .2, .86, n), o.castShadow = !0, this._scene.add(o);
-				let s = new i.Mesh(new i.BoxGeometry(.05, .44, 1.3), new i.MeshStandardMaterial({
+				}), o = new i.Group(), s = new i.Mesh(new i.BoxGeometry(3.7, .6, 1.55), a);
+				s.position.set(0, .32, 0), s.castShadow = !0, s.receiveShadow = !0, o.add(s);
+				let c = new i.Mesh(new i.BoxGeometry(2.1, .52, 1.42), a);
+				c.position.set(-.2, .86, 0), c.castShadow = !0, o.add(c);
+				let l = new i.MeshStandardMaterial({
 					color: 4491434,
 					transparent: !0,
 					opacity: .35,
 					metalness: .1
-				}));
-				s.position.set(t + .85, .84, n), this._scene.add(s);
-				let c = new i.Mesh(new i.BoxGeometry(.05, .4, 1.3), new i.MeshStandardMaterial({
-					color: 4491434,
-					transparent: !0,
-					opacity: .35,
-					metalness: .1
-				}));
-				c.position.set(t - 1.25, .84, n), this._scene.add(c), [
+				}), u = new i.Mesh(new i.BoxGeometry(.05, .44, 1.3), l);
+				u.position.set(.85, .84, 0), o.add(u);
+				let d = new i.Mesh(new i.BoxGeometry(.05, .4, 1.3), l);
+				d.position.set(-1.25, .84, 0), o.add(d), [
 					[-1.45, -.72],
 					[-1.45, .72],
 					[1.45, -.72],
 					[1.45, .72]
-				].forEach(([e, r]) => {
-					let a = new i.Mesh(V, H);
-					a.rotation.z = Math.PI / 2, a.position.set(t + e, .27, n + r), a.castShadow = !0, this._scene.add(a);
-					let o = new i.Mesh(new i.CylinderGeometry(.15, .15, .22, 10), U);
-					o.rotation.z = Math.PI / 2, o.position.set(t + e, .27, n + r), this._scene.add(o);
+				].forEach(([e, t]) => {
+					let n = new i.Mesh(X, Z);
+					n.rotation.z = Math.PI / 2, n.position.set(e, .27, t), n.castShadow = !0, o.add(n);
+					let r = new i.Mesh(new i.CylinderGeometry(.15, .15, .22, 10), Q);
+					r.rotation.z = Math.PI / 2, r.position.set(e, .27, t), o.add(r);
 				});
-				let l = new i.MeshStandardMaterial({
+				let f = new i.MeshStandardMaterial({
 					color: 16777164,
 					emissive: 16777164,
 					emissiveIntensity: .3
-				});
-				[[-.5], [.5]].forEach(([e]) => {
-					let r = new i.Mesh(new i.BoxGeometry(.08, .1, .2), l);
-					r.position.set(t + 1.86, .38, n + e), this._scene.add(r);
-				});
-				let u = new i.MeshStandardMaterial({
+				}), p = new i.MeshStandardMaterial({
 					color: 16720384,
 					emissive: 16720384,
 					emissiveIntensity: .25
 				});
 				[[-.5], [.5]].forEach(([e]) => {
-					let r = new i.Mesh(new i.BoxGeometry(.08, .1, .2), u);
-					r.position.set(t - 1.86, .38, n + e), this._scene.add(r);
-				});
+					let t = new i.Mesh(new i.BoxGeometry(.08, .1, .2), f);
+					t.position.set(1.86, .38, e), o.add(t);
+					let n = new i.Mesh(new i.BoxGeometry(.08, .1, .2), p);
+					n.position.set(-1.86, .38, e), o.add(n);
+				}), o.position.set(t, 0, n), e.rotation && (o.rotation.y = e.rotation * Math.PI / 180), this._scene.add(o);
+			};
+			Y.forEach((e) => {
+				let t = e.x ?? M + 1.6, n = e.z ?? N;
+				e.url && window.THREE.GLTFLoader !== void 0 ? new window.THREE.GLTFLoader().load(e.url, (r) => {
+					let a = r.scene, o = new i.Box3().setFromObject(a), s = new i.Vector3();
+					o.getSize(s);
+					let c = Math.min(3.7 / s.x, 1.5 / s.y, 1.8 / s.z);
+					a.scale.setScalar(c);
+					let l = new i.Vector3();
+					o.getCenter(l), a.position.sub(l.multiplyScalar(c)), a.position.y += s.y * c / 2;
+					let u = new i.Group();
+					u.add(a), u.position.set(t, 0, n), e.rotation && (u.rotation.y = e.rotation * Math.PI / 180), a.traverse((e) => {
+						e.isMesh && (e.castShadow = !0, e.receiveShadow = !0);
+					}), this._scene.add(u);
+				}, void 0, () => $(e)) : $(e);
 			});
-			let W = new i.MeshStandardMaterial({
+			let ee = new i.MeshStandardMaterial({
 				color: 4861458,
 				roughness: .95
-			}), G = new i.MeshStandardMaterial({
+			}), te = new i.MeshStandardMaterial({
 				color: 1924120,
 				roughness: .9
 			});
@@ -1135,12 +1330,12 @@ var _, v = e((() => {
 				[e - 2.5, n - 2],
 				[e - 2.5, r + 2],
 				[t + 1, n - 2.5],
-				[d - 5 / 2 - 1.5, f],
+				[d - p / 2 - 1.5, f],
 				[a - 3, r + 8]
 			].forEach(([e, t]) => {
-				let n = 1.4 + Math.abs((e + t) % 1) * .6, r = new i.Mesh(new i.CylinderGeometry(.12, .16, n, 8), W);
+				let n = 1.4 + Math.abs((e + t) % 1) * .6, r = new i.Mesh(new i.CylinderGeometry(.12, .16, n, 8), ee);
 				r.position.set(e, n / 2, t), r.castShadow = !0, this._scene.add(r);
-				let a = .7 + Math.abs(e * t % .5) * .4, o = new i.Mesh(new i.SphereGeometry(a, 8, 6), G);
+				let a = .7 + Math.abs(e * t % .5) * .4, o = new i.Mesh(new i.SphereGeometry(a, 8, 6), te);
 				o.position.set(e, n + a * .65, t), o.castShadow = !0, this._scene.add(o);
 			});
 		}
@@ -1585,16 +1780,18 @@ var _, v = e((() => {
 				n = t?.state === "below_horizon", r = t?.attributes?.elevation ?? (n ? -10 : 45);
 			}
 			t && (i = this._sv(t));
-			let a = !n && r >= -6 && r < 10, o = a ? Math.max(0, (r + 6) / 16) : n ? 0 : 1, s = 657935, c = .02, l = 4482730, u = 1118498, d = 3158096, f = 0;
-			if (n) (i.includes("rain") || i.includes("storm") || i.includes("lightning") || i.includes("fog")) && (s = 328968, c = .04);
+			let a = !n && r >= -6 && r < 10, o = a ? Math.max(0, (r + 6) / 16) : n ? 0 : 1, s = 657935, c = .02, l = 4482730, u = 1118498, d = 3158096, f = 0, p = !1, m = !1, h = !1;
+			if (n) (i.includes("rain") || i.includes("storm") || i.includes("lightning") || i.includes("fog")) && (s = 328968, c = .04, p = !0);
 			else {
-				let e = i.includes("lightning"), t = i.includes("rain") || i.includes("pour") || i.includes("storm") || e, n = i.includes("cloud") || i.includes("partly"), r = i.includes("fog"), p = i.includes("snow") || i.includes("sleet") || i.includes("hail"), m = i.includes("wind");
-				if (t || e ? (s = 6710903, c = .04, l = 8952234, u = 4473941, d = 5263456, f = e ? .05 : .1) : r ? (s = 10066329, c = .08, l = 11184810, u = 6710886, d = 6316128, f = .05) : p ? (s = 11189196, c = .035, l = 14544639, u = 8952234, d = 8423576, f = .15) : n ? (s = 8952234, c = .025, l = 11189196, u = 5592422, d = 7368832, f = .2) : m ? (s = 8956620, c = .015, l = 12307677, u = 4473941, d = 7372960, f = .4) : (s = 8900331, c = .01, l = 16777215, u = 4473924, d = 9474208, f = .5), a) {
+				let e = i.includes("lightning");
+				p = i.includes("rain") || i.includes("pour") || i.includes("storm") || e, m = i.includes("cloud") || i.includes("partly"), h = i.includes("fog");
+				let t = i.includes("snow") || i.includes("sleet") || i.includes("hail"), n = i.includes("wind");
+				if (p || e ? (s = 6710903, c = .04, l = 8952234, u = 4473941, d = 5263456, f = e ? .05 : .1) : h ? (s = 10066329, c = .08, l = 11184810, u = 6710886, d = 6316128, f = .05) : t ? (s = 11189196, c = .035, l = 14544639, u = 8952234, d = 8423576, f = .15) : m ? (s = 8952234, c = .025, l = 11189196, u = 5592422, d = 7368832, f = .2) : n ? (s = 8956620, c = .015, l = 12307677, u = 4473941, d = 7372960, f = .4) : (s = 8900331, c = .01, l = 16777215, u = 4473924, d = 9474208, f = .5), a) {
 					let e = (e) => e >> 16 & 255, t = (e) => e >> 8 & 255, n = (e) => e & 255, r = (e, t, n) => Math.round(e + (t - e) * n), i = (i, a, o) => r(e(i), e(a), o) << 16 | r(t(i), t(a), o) << 8 | r(n(i), n(a), o);
 					s = i(1707776, s, o), d = i(1050632, d, o), l = i(2232576, l, o), f *= o, c *= .5 + .5 * o;
 				}
 			}
-			this._renderer && this._renderer.setClearColor(s), this._scene.fog && (this._scene.fog.color.setHex(s), this._scene.fog.density = c), this._ambientLight && this._ambientLight.color.setHex(d), this._hemiLight && (this._hemiLight.color.setHex(l), this._hemiLight.groundColor.setHex(u)), this._dirLight && (this._dirLight.intensity = f);
+			this._renderer && this._renderer.setClearColor(n ? 5 : s, 0), this._scene.fog && (this._scene.fog.color.setHex(s), this._scene.fog.density = c), this._ambientLight && this._ambientLight.color.setHex(d), this._hemiLight && (this._hemiLight.color.setHex(l), this._hemiLight.groundColor.setHex(u)), this._dirLight && (this._dirLight.intensity = f), this._updateSkyDome(n, s, r, m, h, p);
 		}
 		_onHassUpdate(e) {
 			if (!this._hass || !e) return;
